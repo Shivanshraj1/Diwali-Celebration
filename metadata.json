@@ -1,0 +1,6 @@
+{
+  "name": "Diwali Celebration",
+  "description": "An authentic, peaceful Diwali celebration where people genuinely ignite crackers with incense sticks, dash back safely, and celebrate with traditional festive sweets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
