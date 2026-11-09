@@ -2,7 +2,9 @@
 
 An immersive, highly interactive web application designed to bring the joy and lights of Diwali to your screen. Experience the festival of lights with physics-based virtual fireworks, interactive characters, traditional sweets, and festive music, all built seamlessly with modern web technologies.
 
-![Diwali Web Interface](diwali.jpg)
+## ✨ Festive Diwali Experience
+
+![Diwali Playground](diwali.jpg)
 
 ## ✨ Features
 
