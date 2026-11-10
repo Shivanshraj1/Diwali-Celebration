@@ -1,6 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { CharacterData } from '../types';
 import { X, UserPlus, Trash2, Edit3, Check, Users, Upload, Link2, Share2, Copy } from 'lucide-react';
+import { AvatarImage } from './AvatarImage';
+import { aaravImg, priyaImg, kabirImg, ananyaImg } from '../data/constants';
+import {
+  AARAV_SVG_DATA_URI,
+  PRIYA_SVG_DATA_URI,
+  KABIR_SVG_DATA_URI,
+  ANANYA_SVG_DATA_URI
+} from '../assets/demoFaces';
 
 interface ManageCharactersModalProps {
   isOpen: boolean;
@@ -45,25 +53,29 @@ export const ManageCharactersModal: React.FC<ManageCharactersModalProps> = ({
 
   const avatarOptions = [
     {
-      avatarUrl: '/src/assets/images/festive_aarav_portrait_1794199836165.jpg',
+      avatarUrl: aaravImg || AARAV_SVG_DATA_URI,
+      characterId: 'aarav',
       outfitColor: 'from-amber-500 to-yellow-600',
       accentBg: 'border-amber-400',
       label: 'Golden Silk Kurta'
     },
     {
-      avatarUrl: '/src/assets/images/festive_priya_portrait_1794199836439.jpg',
+      avatarUrl: priyaImg || PRIYA_SVG_DATA_URI,
+      characterId: 'priya',
       outfitColor: 'from-rose-600 to-red-800',
       accentBg: 'border-rose-400',
       label: 'Crimson Zari Saree'
     },
     {
-      avatarUrl: '/src/assets/images/festive_kabir_portrait_1794199837314.jpg',
+      avatarUrl: kabirImg || KABIR_SVG_DATA_URI,
+      characterId: 'kabir',
       outfitColor: 'from-blue-600 to-indigo-900',
       accentBg: 'border-blue-400',
       label: 'Navy Royal Sherwani'
     },
     {
-      avatarUrl: '/src/assets/images/festive_ananya_portrait_1794199838788.jpg',
+      avatarUrl: ananyaImg || ANANYA_SVG_DATA_URI,
+      characterId: 'ananya',
       outfitColor: 'from-emerald-600 to-teal-800',
       accentBg: 'border-emerald-400',
       label: 'Emerald Green Lehenga'
@@ -225,10 +237,10 @@ export const ManageCharactersModal: React.FC<ManageCharactersModalProps> = ({
                         {/* Profile Picture with Edit Overlay */}
                         <div className="relative group shrink-0">
                           <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-400/80 bg-zinc-800 shadow-md">
-                            <img
+                            <AvatarImage
                               src={isEditing && editAvatarUrl ? editAvatarUrl : char.avatarUrl}
-                              alt={char.name}
-                              referrerPolicy="no-referrer"
+                              name={char.name}
+                              characterId={char.id}
                               className="w-full h-full object-cover"
                             />
                           </div>
@@ -368,7 +380,7 @@ export const ManageCharactersModal: React.FC<ManageCharactersModalProps> = ({
                     {customAvatarUrl ? (
                       <div className="flex items-center gap-3 p-2 rounded-xl bg-zinc-950 border border-amber-400/50">
                         <div className="w-10 h-10 rounded-full overflow-hidden border border-amber-400">
-                          <img src={customAvatarUrl} alt="Custom profile preview" className="w-full h-full object-cover" />
+                          <AvatarImage src={customAvatarUrl} name="Custom preview" className="w-full h-full object-cover" />
                         </div>
                         <div className="text-xs text-emerald-400">Custom profile photo uploaded!</div>
                         <button
@@ -393,7 +405,12 @@ export const ManageCharactersModal: React.FC<ManageCharactersModalProps> = ({
                             }`}
                           >
                             <div className="w-9 h-9 rounded-full overflow-hidden border border-amber-300/60">
-                              <img src={opt.avatarUrl} alt="" className="w-full h-full object-cover" />
+                              <AvatarImage
+                                src={opt.avatarUrl}
+                                name={opt.label}
+                                characterId={opt.characterId}
+                                className="w-full h-full object-cover"
+                              />
                             </div>
                             <span className="text-[9px] text-zinc-300 truncate w-full text-center">
                               {opt.label.split(' ')[0]}

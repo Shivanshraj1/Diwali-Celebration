@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { SWEET_DEFINITIONS } from '../data/constants';
+import { SWEET_DEFINITIONS, INITIAL_CHARACTERS } from '../data/constants';
 import { SweetType, CharacterData } from '../types';
 import { X, Sparkles, Heart, Gift, Check, Smile } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
+import { AvatarImage } from './AvatarImage';
 
 interface SweetsBoxModalProps {
   isOpen: boolean;
@@ -161,12 +162,7 @@ export const SweetsBoxModal: React.FC<SweetsBoxModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-1">
-                {(characters.length > 0 ? characters : [
-                  { id: '1', name: 'Aarav', relation: 'Celebration Host', avatarUrl: '/src/assets/images/festive_aarav_portrait_1794199836165.jpg' },
-                  { id: '2', name: 'Priya', relation: 'Diya Lighting Artist', avatarUrl: '/src/assets/images/festive_priya_portrait_1794199836439.jpg' },
-                  { id: '3', name: 'Kabir', relation: 'Pyrotechnic Enthusiast', avatarUrl: '/src/assets/images/festive_kabir_portrait_1794199837314.jpg' },
-                  { id: '4', name: 'Ananya', relation: 'Sweets & Rangoli Curator', avatarUrl: '/src/assets/images/festive_ananya_portrait_1794199838788.jpg' }
-                ]).map((char, idx) => {
+                {(characters.length > 0 ? characters : INITIAL_CHARACTERS).map((char, idx) => {
                   const thankNotes = [
                     `Dhanyawad! Bohot swadisht ${activeSweet.name} thi! Shubh Deepavali! 🙏`,
                     `Thank you so much! May your home be filled with endless sweetness! 🪔`,
@@ -180,9 +176,10 @@ export const SweetsBoxModal: React.FC<SweetsBoxModalProps> = ({
                       className="p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800/80 flex items-start gap-2.5 shadow-sm"
                     >
                       <div className="w-9 h-9 rounded-full overflow-hidden border border-amber-400/80 shrink-0 shadow-sm">
-                        <img
+                        <AvatarImage
                           src={char.avatarUrl}
-                          alt={char.name}
+                          name={char.name}
+                          characterId={char.id}
                           className="w-full h-full object-cover"
                         />
                       </div>

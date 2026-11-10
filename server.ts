@@ -73,20 +73,27 @@ const state: GlobalCelebrationStats = {
   ]
 };
 
+// Server-authoritative Connected User Presence
+interface ConnectedUser {
+  socketId: string;
+  character?: any;
+}
+
+const connectedUsers = new Map<WebSocket, ConnectedUser>();
+
 // WebSocket Server attached to /ws
 const wss = new WebSocketServer({ noServer: true });
 
-function broadcast(data: object) {
+function broadcast(data: object, excludeWs?: WebSocket) {
   const payload = JSON.stringify(data);
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
+    if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
       client.send(payload);
     }
   });
 }
 
 function getEffectiveActiveUsers(): number {
-  // Real connected WebSocket count + natural festive community concurrency
   return Math.max(1, wss.clients.size);
 }
 
@@ -107,13 +114,21 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 wss.on('connection', (ws: WebSocket) => {
+  const socketId = `sock_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  connectedUsers.set(ws, { socketId });
   state.activeUsers = getEffectiveActiveUsers();
 
-  // Send initial full state on connect
+  // Collect all currently active characters joined by other online users
+  const activeCharacters = Array.from(connectedUsers.values())
+    .map((u) => u.character)
+    .filter(Boolean);
+
+  // Send initial full state and current active online characters
   ws.send(
     JSON.stringify({
       type: 'init',
-      data: state
+      data: state,
+      connectedCharacters: activeCharacters
     })
   );
 
@@ -127,7 +142,124 @@ wss.on('connection', (ws: WebSocket) => {
     try {
       const parsed = JSON.parse(message.toString());
 
-      if (parsed.type === 'celebration:action') {
+      // 1. User joins via invite link or custom character creation
+      if (parsed.type === 'presence:join' && parsed.character) {
+        const user = connectedUsers.get(ws);
+        if (user) {
+          user.character = parsed.character;
+        }
+
+        const newActivity: CelebrationActivity = {
+          id: `join_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          type: 'wish',
+          text: `✨ ${parsed.character.name} stepped into the Diwali celebration arena!`,
+          sender: parsed.character.name,
+          timestamp: Date.now()
+        };
+
+        state.recentActivities.unshift(newActivity);
+        if (state.recentActivities.length > 25) {
+          state.recentActivities.pop();
+        }
+
+        // Broadcast to ALL other clients so the new person appears in their arena immediately!
+        broadcast({
+          type: 'user:joined',
+          character: parsed.character,
+          activity: newActivity,
+          stats: {
+            totalCelebrations: state.totalCelebrations,
+            crackersIgnited: state.crackersIgnited,
+            sweetsShared: state.sweetsShared,
+            wishesSent: state.wishesSent,
+            diyasLit: state.diyasLit
+          }
+        }, ws);
+
+        console.log(`[Diwali Celebration] User joined arena: ${parsed.character.name} (${parsed.character.id})`);
+      }
+
+      // 2. Character updated (name or avatar change)
+      else if (parsed.type === 'presence:update_character' && parsed.character) {
+        const user = connectedUsers.get(ws);
+        if (user) {
+          user.character = parsed.character;
+        }
+        broadcast({
+          type: 'user:updated',
+          character: parsed.character
+        }, ws);
+      }
+
+      // 3. Remote cracker ignition broadcast
+      else if (parsed.type === 'cracker:ignite') {
+        state.totalCelebrations += 1;
+        state.crackersIgnited += 1;
+
+        const newActivity: CelebrationActivity = {
+          id: `cracker_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          type: 'cracker',
+          text: parsed.detail || `${parsed.igniterName || 'Someone'} ignited ${parsed.crackerType}!`,
+          sender: parsed.igniterName || 'Celebrator',
+          timestamp: Date.now()
+        };
+
+        state.recentActivities.unshift(newActivity);
+        if (state.recentActivities.length > 25) state.recentActivities.pop();
+
+        // Broadcast to other clients so they witness the fireworks in real time!
+        broadcast({
+          type: 'cracker:remote_ignited',
+          crackerType: parsed.crackerType,
+          x: parsed.x,
+          y: parsed.y,
+          characterId: parsed.characterId,
+          igniterName: parsed.igniterName,
+          activity: newActivity,
+          stats: {
+            totalCelebrations: state.totalCelebrations,
+            crackersIgnited: state.crackersIgnited,
+            sweetsShared: state.sweetsShared,
+            wishesSent: state.wishesSent,
+            diyasLit: state.diyasLit
+          }
+        }, ws);
+      }
+
+      // 4. Remote sweet sharing broadcast
+      else if (parsed.type === 'sweet:share') {
+        state.totalCelebrations += 1;
+        state.sweetsShared += 1;
+
+        const newActivity: CelebrationActivity = {
+          id: `sweet_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          type: 'sweet',
+          text: parsed.detail || `${parsed.sharerName || 'Someone'} distributed sweet treats!`,
+          sender: parsed.sharerName || 'Celebrator',
+          timestamp: Date.now()
+        };
+
+        state.recentActivities.unshift(newActivity);
+        if (state.recentActivities.length > 25) state.recentActivities.pop();
+
+        broadcast({
+          type: 'sweet:remote_shared',
+          sweetType: parsed.sweetType,
+          characterId: parsed.characterId,
+          sharerName: parsed.sharerName,
+          activity: newActivity,
+          stats: {
+            totalCelebrations: state.totalCelebrations,
+            crackersIgnited: state.crackersIgnited,
+            sweetsShared: state.sweetsShared,
+            wishesSent: state.wishesSent,
+            diyasLit: state.diyasLit
+          }
+        }, ws);
+      }
+
+      // 5. Celebration action report (general)
+      else if (parsed.type === 'celebration:action') {
         const actionType = parsed.actionType as 'cracker' | 'sweet' | 'wish' | 'diya';
         const sender = parsed.sender || 'Celebrator';
         const detail = parsed.detail || '';
@@ -171,6 +303,16 @@ wss.on('connection', (ws: WebSocket) => {
   });
 
   ws.on('close', () => {
+    const user = connectedUsers.get(ws);
+    if (user && user.character) {
+      console.log(`[Diwali Celebration] User left arena: ${user.character.name}`);
+      broadcast({
+        type: 'user:left',
+        characterId: user.character.id,
+        name: user.character.name
+      }, ws);
+    }
+    connectedUsers.delete(ws);
     state.activeUsers = getEffectiveActiveUsers();
     broadcast({
       type: 'presence:update',

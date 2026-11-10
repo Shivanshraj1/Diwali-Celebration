@@ -1,12 +1,34 @@
-import { GlobalCelebrationStats, CelebrationActivity } from '../types';
+import { GlobalCelebrationStats, CelebrationActivity, CharacterData, CrackerType, SweetType } from '../types';
 
-type Listener = (stats: GlobalCelebrationStats, latestActivity?: CelebrationActivity) => void;
+type StatsListener = (stats: GlobalCelebrationStats, latestActivity?: CelebrationActivity) => void;
+type UserJoinedListener = (character: CharacterData) => void;
+type UserLeftListener = (characterId: string, name: string) => void;
+type RemoteCrackerListener = (data: {
+  crackerType: CrackerType;
+  x: number;
+  y: number;
+  characterId?: string;
+  igniterName?: string;
+}) => void;
+type RemoteSweetListener = (data: {
+  sweetType: SweetType;
+  characterId?: string;
+  sharerName?: string;
+}) => void;
 
 class RealtimeCelebrationService {
   private socket: WebSocket | null = null;
-  private listeners: Set<Listener> = new Set();
+  private statsListeners: Set<StatsListener> = new Set();
+  private userJoinedListeners: Set<UserJoinedListener> = new Set();
+  private userLeftListeners: Set<UserLeftListener> = new Set();
+  private remoteCrackerListeners: Set<RemoteCrackerListener> = new Set();
+  private remoteSweetListeners: Set<RemoteSweetListener> = new Set();
+
   private reconnectTimer: NodeJS.Timeout | null = null;
   private isConnecting = false;
+  private myCharacter: CharacterData | null = null;
+  private pendingJoinCharacter: CharacterData | null = null;
+
   private state: GlobalCelebrationStats = {
     activeUsers: 1,
     totalCelebrations: 34820,
@@ -26,17 +48,45 @@ class RealtimeCelebrationService {
     return this.state;
   }
 
-  public subscribe(listener: Listener): () => void {
-    this.listeners.add(listener);
+  public subscribe(listener: StatsListener): () => void {
+    this.statsListeners.add(listener);
     // Immediately emit current known state
     listener(this.state);
     return () => {
-      this.listeners.delete(listener);
+      this.statsListeners.delete(listener);
+    };
+  }
+
+  public onUserJoined(listener: UserJoinedListener): () => void {
+    this.userJoinedListeners.add(listener);
+    return () => {
+      this.userJoinedListeners.delete(listener);
+    };
+  }
+
+  public onUserLeft(listener: UserLeftListener): () => void {
+    this.userLeftListeners.add(listener);
+    return () => {
+      this.userLeftListeners.delete(listener);
+    };
+  }
+
+  public onRemoteCracker(listener: RemoteCrackerListener): () => void {
+    this.remoteCrackerListeners.add(listener);
+    return () => {
+      this.remoteCrackerListeners.delete(listener);
+    };
+  }
+
+  public onRemoteSweet(listener: RemoteSweetListener): () => void {
+    this.remoteSweetListeners.add(listener);
+    return () => {
+      this.remoteSweetListeners.delete(listener);
     };
   }
 
   private notify(latestActivity?: CelebrationActivity) {
-    this.listeners.forEach((fn) => fn({ ...this.state }, latestActivity));
+    this.statsListeners.forEach((fn) => fn({ ...this.state }, latestActivity));
   }
 
   private async fetchInitialStats() {
@@ -73,6 +123,18 @@ class RealtimeCelebrationService {
       ws.onopen = () => {
         this.isConnecting = false;
         this.socket = ws;
+
+        // If user joined while reconnecting or connecting, send join payload now
+        if (this.pendingJoinCharacter || this.myCharacter) {
+          const charToJoin = this.pendingJoinCharacter || this.myCharacter;
+          if (charToJoin) {
+            this.sendSocketMessage({
+              type: 'presence:join',
+              character: charToJoin
+            });
+            this.pendingJoinCharacter = null;
+          }
+        }
       };
 
       ws.onmessage = (event) => {
@@ -85,9 +147,67 @@ class RealtimeCelebrationService {
               ...msg.data
             };
             this.notify();
+
+            // If there are existing online characters, inform joined listeners
+            if (Array.isArray(msg.connectedCharacters)) {
+              msg.connectedCharacters.forEach((char: CharacterData) => {
+                if (char && char.id && char.id !== this.myCharacter?.id) {
+                  this.userJoinedListeners.forEach((fn) => fn(char));
+                }
+              });
+            }
           } else if (msg.type === 'presence:update') {
             this.state.activeUsers = msg.activeUsers;
             this.notify();
+          } else if (msg.type === 'user:joined' && msg.character) {
+            if (msg.stats) {
+              this.state = { ...this.state, ...msg.stats };
+            }
+            if (msg.activity) {
+              const exists = this.state.recentActivities.some((a) => a.id === msg.activity.id);
+              if (!exists) {
+                this.state.recentActivities = [msg.activity, ...this.state.recentActivities.slice(0, 24)];
+              }
+              this.notify(msg.activity);
+            }
+            // Notify user joined listeners so the person appears in the arena!
+            this.userJoinedListeners.forEach((fn) => fn(msg.character));
+          } else if (msg.type === 'user:left' && msg.characterId) {
+            this.userLeftListeners.forEach((fn) => fn(msg.characterId, msg.name || 'Friend'));
+          } else if (msg.type === 'cracker:remote_ignited') {
+            if (msg.stats) this.state = { ...this.state, ...msg.stats };
+            if (msg.activity) {
+              const exists = this.state.recentActivities.some((a) => a.id === msg.activity.id);
+              if (!exists) {
+                this.state.recentActivities = [msg.activity, ...this.state.recentActivities.slice(0, 24)];
+              }
+              this.notify(msg.activity);
+            }
+            this.remoteCrackerListeners.forEach((fn) =>
+              fn({
+                crackerType: msg.crackerType,
+                x: msg.x,
+                y: msg.y,
+                characterId: msg.characterId,
+                igniterName: msg.igniterName
+              })
+            );
+          } else if (msg.type === 'sweet:remote_shared') {
+            if (msg.stats) this.state = { ...this.state, ...msg.stats };
+            if (msg.activity) {
+              const exists = this.state.recentActivities.some((a) => a.id === msg.activity.id);
+              if (!exists) {
+                this.state.recentActivities = [msg.activity, ...this.state.recentActivities.slice(0, 24)];
+              }
+              this.notify(msg.activity);
+            }
+            this.remoteSweetListeners.forEach((fn) =>
+              fn({
+                sweetType: msg.sweetType,
+                characterId: msg.characterId,
+                sharerName: msg.sharerName
+              })
+            );
           } else if (msg.type === 'celebration:event') {
             const { activity, stats } = msg;
             if (stats) {
@@ -134,7 +254,64 @@ class RealtimeCelebrationService {
       this.reconnectTimer = null;
       this.fetchInitialStats();
       this.connect();
-    }, 3500);
+    }, 3000);
+  }
+
+  private sendSocketMessage(msg: object) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify(msg));
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Announce joining the live arena with a Character
+   */
+  public joinPresence(character: CharacterData) {
+    this.myCharacter = character;
+    const sent = this.sendSocketMessage({
+      type: 'presence:join',
+      character
+    });
+
+    if (!sent) {
+      this.pendingJoinCharacter = character;
+    }
+  }
+
+  /**
+   * Broadcast cracker ignition so other participants see the visual and hear audio
+   */
+  public broadcastCrackerIgnition(
+    crackerType: CrackerType,
+    x: number,
+    y: number,
+    characterId?: string,
+    igniterName?: string
+  ) {
+    this.sendSocketMessage({
+      type: 'cracker:ignite',
+      crackerType,
+      x,
+      y,
+      characterId,
+      igniterName: igniterName || 'Celebrator',
+      detail: `${igniterName || 'Celebrator'} ignited ${crackerType}!`
+    });
+  }
+
+  /**
+   * Broadcast sweet sharing so all participants' companions cheer
+   */
+  public broadcastSweetShare(sweetType: SweetType, characterId?: string, sharerName?: string) {
+    this.sendSocketMessage({
+      type: 'sweet:share',
+      sweetType,
+      characterId,
+      sharerName: sharerName || 'Celebrator',
+      detail: `${sharerName || 'Celebrator'} shared Diwali sweets with everyone!`
+    });
   }
 
   public reportAction(actionType: 'cracker' | 'sweet' | 'wish' | 'diya', detail: string, sender = 'You') {
@@ -156,16 +333,14 @@ class RealtimeCelebrationService {
     this.notify(localActivity);
 
     // 2. Broadcast via WebSocket if open
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(
-        JSON.stringify({
-          type: 'celebration:action',
-          actionType,
-          sender,
-          detail
-        })
-      );
-    } else {
+    const sent = this.sendSocketMessage({
+      type: 'celebration:action',
+      actionType,
+      sender,
+      detail
+    });
+
+    if (!sent) {
       // 3. Fallback via HTTP REST
       fetch('/api/celebrate', {
         method: 'POST',

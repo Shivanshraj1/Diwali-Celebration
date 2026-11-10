@@ -1,26 +1,68 @@
 import { CharacterData, CrackerDefinition, SweetDefinition } from '../types';
+import {
+  AARAV_SVG_DATA_URI,
+  PRIYA_SVG_DATA_URI,
+  KABIR_SVG_DATA_URI,
+  ANANYA_SVG_DATA_URI
+} from '../assets/demoFaces';
+import {
+  PROCEDURAL_COURTYARD_SVG,
+  PROCEDURAL_PLAYGROUND_SVG,
+  PROCEDURAL_TERRACE_SVG
+} from '../assets/proceduralBackgrounds';
+
+// Direct ES module imports so Vite bundles and resolves hashed asset URLs in production / GitHub Pages
+import courtyardImg from '../assets/images/moonlit_courtyard_glow_1794207930774.jpg';
+import playgroundImg from '../assets/images/playground_diwali_celebration_1794201549291.jpg';
+import terraceImg from '../assets/images/empty_calm_diwali_terrace_1794201037157.jpg';
+
+import aaravImg from '../assets/images/festive_aarav_portrait_1794199836165.jpg';
+import priyaImg from '../assets/images/festive_priya_portrait_1794199836439.jpg';
+import kabirImg from '../assets/images/festive_kabir_portrait_1794199837314.jpg';
+import ananyaImg from '../assets/images/festive_ananya_portrait_1794199838788.jpg';
+
+export {
+  courtyardImg,
+  playgroundImg,
+  terraceImg,
+  aaravImg,
+  priyaImg,
+  kabirImg,
+  ananyaImg
+};
 
 export interface BackgroundOption {
-  id: 'playground' | 'terrace';
+  id: 'courtyard' | 'playground' | 'terrace';
   name: string;
   hindiName: string;
   url: string;
+  fallbackUrl: string;
   description: string;
 }
 
 export const BACKGROUND_OPTIONS: BackgroundOption[] = [
   {
+    id: 'courtyard',
+    name: 'Moonlit Courtyard',
+    hindiName: 'चंद्रोदय आँगन',
+    url: courtyardImg,
+    fallbackUrl: PROCEDURAL_COURTYARD_SVG,
+    description: 'Illuminated traditional courtyard with glowing tree lanterns, clay diyas, and flower rangoli under a full moon.'
+  },
+  {
     id: 'playground',
-    name: 'Festival Celebration Ground',
+    name: 'Celebration Ground',
     hindiName: 'उत्सव मैदान',
-    url: '/src/assets/images/playground_diwali_celebration_1794201549291.jpg',
+    url: playgroundImg,
+    fallbackUrl: PROCEDURAL_PLAYGROUND_SVG,
     description: 'Vibrant open community ground filled with festival fairy lights, glowing arches, and cheerful celebration.'
   },
   {
     id: 'terrace',
-    name: 'Calm Rooftop Terrace',
+    name: 'Rooftop Terrace',
     hindiName: 'शांत छत',
-    url: '/src/assets/images/empty_calm_diwali_terrace_1794201037157.jpg',
+    url: terraceImg,
+    fallbackUrl: PROCEDURAL_TERRACE_SVG,
     description: 'Serene stone terrace lined with clay oil diyas and flower rangoli overlooking the illuminated city.'
   }
 ];
@@ -109,12 +151,13 @@ export const INITIAL_CHARACTERS: CharacterData[] = [
     relation: 'Celebration Host',
     outfitColor: 'from-amber-500 to-yellow-600',
     accentBg: 'border-amber-400',
-    avatarUrl: '/src/assets/images/festive_aarav_portrait_1794199836165.jpg',
+    avatarUrl: aaravImg || AARAV_SVG_DATA_URI,
     xPercent: 18,
     yPercent: 74,
     direction: 'right',
     state: 'idle',
-    happiness: 95
+    happiness: 95,
+    gender: 'male'
   },
   {
     id: 'priya',
@@ -122,12 +165,13 @@ export const INITIAL_CHARACTERS: CharacterData[] = [
     relation: 'Diya Lighting Artist',
     outfitColor: 'from-rose-600 to-red-800',
     accentBg: 'border-rose-400',
-    avatarUrl: '/src/assets/images/festive_priya_portrait_1794199836439.jpg',
+    avatarUrl: priyaImg || PRIYA_SVG_DATA_URI,
     xPercent: 39,
     yPercent: 78,
     direction: 'right',
     state: 'idle',
-    happiness: 98
+    happiness: 98,
+    gender: 'female'
   },
   {
     id: 'kabir',
@@ -135,12 +179,13 @@ export const INITIAL_CHARACTERS: CharacterData[] = [
     relation: 'Pyrotechnic Enthusiast',
     outfitColor: 'from-blue-600 to-indigo-900',
     accentBg: 'border-blue-400',
-    avatarUrl: '/src/assets/images/festive_kabir_portrait_1794199837314.jpg',
+    avatarUrl: kabirImg || KABIR_SVG_DATA_URI,
     xPercent: 63,
     yPercent: 73,
     direction: 'left',
     state: 'idle',
-    happiness: 92
+    happiness: 92,
+    gender: 'male'
   },
   {
     id: 'ananya',
@@ -148,12 +193,13 @@ export const INITIAL_CHARACTERS: CharacterData[] = [
     relation: 'Sweets & Rangoli Curator',
     outfitColor: 'from-emerald-600 to-teal-800',
     accentBg: 'border-emerald-400',
-    avatarUrl: '/src/assets/images/festive_ananya_portrait_1794199838788.jpg',
+    avatarUrl: ananyaImg || ANANYA_SVG_DATA_URI,
     xPercent: 82,
     yPercent: 76,
     direction: 'left',
     state: 'idle',
-    happiness: 97
+    happiness: 97,
+    gender: 'female'
   }
 ];
 

@@ -243,69 +243,79 @@ export const CountdownDiwali: React.FC<CountdownDiwaliProps> = ({
         ))}
       </div>
 
+      {/* Top Right Skip Button for instant entrance on mobile or desktop */}
+      <button
+        onClick={onEnterTerrace}
+        className="absolute top-4 right-4 sm:top-6 sm:right-6 z-30 flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-zinc-900/85 hover:bg-zinc-800 border border-amber-500/35 text-amber-300 text-xs font-semibold backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-lg shadow-black/60"
+        title="Directly enter Diwali celebration"
+      >
+        <span>Skip to Celebration</span>
+        <ArrowRight className="w-3.5 h-3.5 text-amber-400" />
+      </button>
+
       <AnimatePresence mode="wait">
         {typeof countdown === 'number' ? (
           <motion.div
             key={countdown}
-            initial={{ scale: 0.15, opacity: 0, filter: 'blur(14px)' }}
+            initial={{ scale: 0.2, opacity: 0, filter: 'blur(12px)' }}
             animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-            exit={{ scale: 2.4, opacity: 0, filter: 'blur(20px)' }}
-            transition={{ type: 'spring', stiffness: 280, damping: 18 }}
-            className="relative z-20 flex flex-col items-center justify-center text-center"
+            exit={{ scale: 2.2, opacity: 0, filter: 'blur(16px)' }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+            className="relative z-20 flex flex-col items-center justify-center text-center px-4"
           >
             {/* Glowing shockwave ring */}
             <motion.div
               initial={{ scale: 0.5, opacity: 0.95 }}
               animate={{ scale: 2.6, opacity: 0 }}
               transition={{ duration: 0.85, ease: 'easeOut' }}
-              className="absolute w-64 h-64 rounded-full border-2 border-amber-400/80 shadow-[0_0_60px_rgba(245,158,11,0.7)]"
+              className="absolute w-48 h-48 sm:w-64 sm:h-64 rounded-full border-2 border-amber-400/80 shadow-[0_0_60px_rgba(245,158,11,0.7)]"
             />
 
-            {/* Giant countdown numeral */}
-            <h1 className="text-9xl md:text-[15rem] font-black font-display tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-200 to-amber-600 drop-shadow-[0_0_40px_rgba(245,158,11,0.75)]">
+            {/* Giant countdown numeral with responsive size */}
+            <h1 className="text-7xl sm:text-9xl md:text-[13rem] font-black font-display tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-200 to-amber-600 drop-shadow-[0_0_40px_rgba(245,158,11,0.75)] select-none">
               {countdown}
             </h1>
 
-            <p className="mt-4 text-xs md:text-sm font-medium tracking-[0.35em] text-amber-300/90 uppercase font-sans">
+            <p className="mt-3 sm:mt-4 text-[11px] sm:text-xs md:text-sm font-medium tracking-[0.25em] sm:tracking-[0.35em] text-amber-300/90 uppercase font-sans">
               Igniting Festival of Lights
             </p>
           </motion.div>
         ) : (
           <motion.div
             key="diwali-greeting"
-            initial={{ scale: 0.75, opacity: 0, y: 30 }}
+            initial={{ scale: 0.8, opacity: 0, y: 24 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 170, damping: 18 }}
-            className="relative z-20 max-w-3xl mx-auto px-6 text-center flex flex-col items-center"
+            transition={{ type: 'spring', stiffness: 180, damping: 20 }}
+            className="relative z-20 max-w-3xl mx-auto px-4 sm:px-6 text-center flex flex-col items-center"
           >
             {/* Traditional glowing Diya emblem */}
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-              className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-600 via-yellow-500 to-rose-500 p-0.5 shadow-[0_0_45px_rgba(245,158,11,0.8)] mb-6 flex items-center justify-center"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-amber-600 via-yellow-500 to-rose-500 p-0.5 shadow-[0_0_45px_rgba(245,158,11,0.8)] mb-4 sm:mb-6 flex items-center justify-center"
             >
               <div className="w-full h-full rounded-full bg-zinc-950 flex items-center justify-center">
-                <Flame className="w-8 h-8 text-amber-400 fill-amber-400 animate-pulse" />
+                <Flame className="w-7 h-7 sm:w-8 sm:h-8 text-amber-400 fill-amber-400 animate-pulse" />
               </div>
             </motion.div>
 
             {/* Hindi greeting */}
             <motion.span
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-lg md:text-2xl font-serif text-amber-300/95 tracking-widest mb-2 font-festive"
+              className="text-base sm:text-xl md:text-2xl font-serif text-amber-300/95 tracking-widest mb-1.5 sm:mb-2 font-festive"
             >
               ॥ शुभ दीपावली ॥
             </motion.span>
 
-            {/* Vibrant English Title */}
+            {/* Vibrant English Title with responsive typography */}
             <motion.h1
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, type: 'spring' }}
-              className="text-5xl md:text-8xl font-black font-display tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-500 drop-shadow-[0_0_50px_rgba(245,158,11,0.7)]"
+              className="text-4xl sm:text-6xl md:text-8xl font-black font-display tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-500 drop-shadow-[0_0_50px_rgba(245,158,11,0.7)]"
             >
               HAPPY DIWALI
             </motion.h1>
@@ -314,21 +324,21 @@ export const CountdownDiwali: React.FC<CountdownDiwaliProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.45 }}
-              className="mt-6 text-base md:text-lg text-zinc-300 max-w-xl font-light leading-relaxed text-balance"
+              className="mt-4 sm:mt-6 text-xs sm:text-base md:text-lg text-zinc-300 max-w-xl font-light leading-relaxed text-balance"
             >
               May the divine festival of lights illuminate your life with infinite joy, good health, peace, prosperity, and togetherness.
             </motion.p>
 
-            {/* Direct button to enter the terrace celebration */}
+            {/* Direct button to enter the celebration */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
-              className="mt-10 flex flex-col sm:flex-row items-center gap-4"
+              transition={{ delay: 0.65 }}
+              className="mt-6 sm:mt-10 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto"
             >
               <button
                 onClick={onEnterTerrace}
-                className="flex items-center justify-center gap-2.5 px-8 py-3.5 text-sm font-bold text-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-yellow-200 rounded-2xl shadow-2xl shadow-amber-500/30 transition-all hover:scale-105 active:scale-95"
+                className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 sm:px-8 py-3.5 text-xs sm:text-sm font-bold text-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-yellow-200 rounded-2xl shadow-2xl shadow-amber-500/30 transition-all hover:scale-105 active:scale-95"
               >
                 <Sparkles className="w-4 h-4 fill-black" />
                 <span>Enter Diwali Celebration</span>

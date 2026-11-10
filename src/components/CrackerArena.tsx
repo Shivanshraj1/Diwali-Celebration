@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { CharacterData, CrackerType, ActiveCracker, SweetType, GlobalCelebrationStats, CelebrationActivity } from '../types';
 import { INITIAL_CHARACTERS, CRACKER_DEFINITIONS, BACKGROUND_OPTIONS, SWEET_DEFINITIONS } from '../data/constants';
 import { Character } from './Character';
@@ -10,6 +11,8 @@ import { ManageCharactersModal } from './ManageCharactersModal';
 import { HangingLanterns } from './HangingLanterns';
 import { GlobalCelebrationBadge } from './GlobalCelebrationBadge';
 import { GlobalCelebrationModal } from './GlobalCelebrationModal';
+import { AtmosphereControlsModal } from './AtmosphereControlsModal';
+import { InviteWelcomeModal } from './InviteWelcomeModal';
 import { realtimeCelebration } from '../services/realtimeCelebration';
 import { soundEngine } from '../audio/soundEngine';
 import {
@@ -23,6 +26,11 @@ import {
   Users,
   Moon,
   Gift,
+  Sliders,
+  Menu,
+  X,
+  ChevronRight,
+  Share2,
   Image as ImageIcon
 } from 'lucide-react';
 
@@ -42,21 +50,54 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
   const arenaRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [characters, setCharacters] = useState<CharacterData[]>(INITIAL_CHARACTERS);
+  const charactersRef = useRef<CharacterData[]>(characters);
+  useEffect(() => {
+    charactersRef.current = characters;
+  }, [characters]);
+
   const [activeCrackers, setActiveCrackers] = useState<ActiveCracker[]>([]);
   const [activeTab, setActiveTab] = useState<ArenaTab>('terrace');
-  const [currentBgId, setCurrentBgId] = useState<'playground' | 'terrace'>('playground');
+  const [currentBgId, setCurrentBgId] = useState<'courtyard' | 'playground' | 'terrace'>('courtyard');
+  const [bgError, setBgError] = useState(false);
   const [sweetsDistributedCount, setSweetsDistributedCount] = useState(0);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [selectedCrackerForPlacement, setSelectedCrackerForPlacement] = useState<CrackerType | null>(null);
   const [weatherMode, setWeatherMode] = useState<WeatherMode>('starlit');
   const [isManagePeopleOpen, setIsManagePeopleOpen] = useState(false);
   const [isGlobalStatsOpen, setIsGlobalStatsOpen] = useState(false);
+  const [isAtmosphereModalOpen, setIsAtmosphereModalOpen] = useState(false);
   const [celebrationStats, setCelebrationStats] = useState<GlobalCelebrationStats>(realtimeCelebration.getState());
   const [latestActivity, setLatestActivity] = useState<CelebrationActivity | undefined>();
 
+  // Companion Invite Link detection on mount (?join=true&invitedBy=...)
+  const [invitedByParam, setInvitedByParam] = useState<string | null>(null);
+  const [showInviteWelcome, setShowInviteWelcome] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const isJoin = params.get('join') === 'true';
+      const invBy = params.get('invitedBy');
+      if (isJoin || invBy) {
+        setInvitedByParam(invBy || 'Host');
+        setShowInviteWelcome(true);
+      }
+    } catch {}
+  }, []);
+
+  const handleJoinFromInvite = (newChar: CharacterData) => {
+    setCharacters((prev) => [...prev.filter((c) => c.id !== newChar.id), newChar]);
+    realtimeCelebration.joinPresence(newChar);
+    soundEngine.playSweetCheer();
+    setShowInviteWelcome(false);
+    try {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch {}
+  };
+
   const activeBackground = BACKGROUND_OPTIONS.find((b) => b.id === currentBgId) || BACKGROUND_OPTIONS[0];
 
-  // Subscribe to live global celebration count
+  // Subscribe to live global celebration stats and activities
   useEffect(() => {
     const unsub = realtimeCelebration.subscribe((stats, act) => {
       setCelebrationStats(stats);
@@ -177,7 +218,7 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
 
   // Realistic human ignition choreography
   const igniteCrackerAt = useCallback(
-    (type: CrackerType, x: number, y: number, characterId?: string) => {
+    (type: CrackerType, x: number, y: number, characterId?: string, isRemote = false) => {
       const def = CRACKER_DEFINITIONS[type];
       const now = performance.now();
       const fuseDuration = 1000;
@@ -186,8 +227,13 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
       soundEngine.playFuseSizzle(1.0);
 
       // Report to global live celebration counter
-      const igniterName = characterId ? characters.find((c) => c.id === characterId)?.name : 'Celebrator';
+      const igniterName = characterId ? charactersRef.current.find((c) => c.id === characterId)?.name : 'Celebrator';
       realtimeCelebration.reportAction('cracker', `Ignited ${def.name} (${def.hindiName})!`, igniterName);
+
+      // Realtime synchronization to all other connected participants
+      if (!isRemote) {
+        realtimeCelebration.broadcastCrackerIgnition(type, x, y, characterId, igniterName);
+      }
 
       setTimeout(() => {
         triggerCrackerAudio(type);
@@ -333,11 +379,16 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
     igniteCrackerAt(crackerType, x, y, characterId);
   };
 
-  const handleFeedSweet = (characterId: string, sweetType: SweetType) => {
+  const handleFeedSweet = useCallback((characterId: string, sweetType: SweetType, isRemote = false) => {
     const sweetDef = SWEET_DEFINITIONS[sweetType];
     soundEngine.playSweetCheer();
 
     setSweetsDistributedCount((prev) => prev + 1);
+
+    if (!isRemote) {
+      const sharer = charactersRef.current.find((c) => c.id === characterId)?.name || 'Celebrator';
+      realtimeCelebration.broadcastSweetShare(sweetType, characterId, sharer);
+    }
 
     setCharacters((prev) =>
       prev.map((c) => {
@@ -361,7 +412,43 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
         prev.map((c) => (c.id === characterId && c.state === 'sweets' ? { ...c, state: 'idle' } : c))
       );
     }, 4500);
-  };
+  }, []);
+
+  // Real-time synchronization of joining users, remote crackers, and sweet shares
+  useEffect(() => {
+    const unsubJoin = realtimeCelebration.onUserJoined((remoteChar) => {
+      setCharacters((prev) => {
+        const exists = prev.some((c) => c.id === remoteChar.id);
+        if (exists) {
+          return prev.map((c) => (c.id === remoteChar.id ? remoteChar : c));
+        }
+        return [...prev, remoteChar];
+      });
+      soundEngine.playSweetCheer();
+    });
+
+    const unsubLeft = realtimeCelebration.onUserLeft((charId) => {
+      setCharacters((prev) => prev.filter((c) => c.id !== charId));
+    });
+
+    const unsubCracker = realtimeCelebration.onRemoteCracker((data) => {
+      igniteCrackerAt(data.crackerType, data.x, data.y, data.characterId, true);
+    });
+
+    const unsubSweet = realtimeCelebration.onRemoteSweet((data) => {
+      const targetId = data.characterId || charactersRef.current[0]?.id;
+      if (targetId) {
+        handleFeedSweet(targetId, data.sweetType, true);
+      }
+    });
+
+    return () => {
+      unsubJoin();
+      unsubLeft();
+      unsubCracker();
+      unsubSweet();
+    };
+  }, [igniteCrackerAt, handleFeedSweet]);
 
   const handleFloorClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!selectedCrackerForPlacement) return;
@@ -466,12 +553,15 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
       onDragOver={handleArenaDragOver}
       onDrop={handleArenaDrop}
       onClick={handleFloorClick}
-      className="relative w-screen h-screen overflow-hidden select-none bg-black"
+      className={`relative w-screen h-screen overflow-hidden select-none bg-black ${
+        selectedCrackerForPlacement ? 'cursor-crosshair' : ''
+      }`}
     >
-      {/* Dynamic Celebration Scene Background (Playground vs Terrace) */}
+      {/* Dynamic Celebration Scene Background (Moonlit Courtyard, Playground, Terrace) with automatic in-code SVG fallback */}
       <img
         key={activeBackground.id}
-        src={activeBackground.url}
+        src={bgError ? activeBackground.fallbackUrl : (activeBackground.url || activeBackground.fallbackUrl)}
+        onError={() => setBgError(true)}
         alt={activeBackground.name}
         referrerPolicy="no-referrer"
         className="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.92] contrast-[1.04] transition-opacity duration-700 animate-in fade-in"
@@ -498,141 +588,216 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
         height={dimensions.height}
       />
 
-      {/* Top Header Navigation */}
-      <header className="relative z-40 flex items-center justify-between gap-8 px-6 py-4 bg-zinc-950/75 backdrop-blur-md border-b border-amber-500/20">
-        {/* Zone 1: Wordmark */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
-            <Flame className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
+      {/* Top Header Navigation: Universal 2-Tier Adaptive Bar (Visible & Accessible on ALL Screens) */}
+      <header className="relative z-40 bg-zinc-950/92 backdrop-blur-md border-b border-amber-500/25 shadow-xl select-none">
+        {/* Tier 1: Master Brand, Scene Selector & Global Stats */}
+        <div className="px-3 sm:px-5 py-2 flex items-center justify-between gap-2 sm:gap-4 max-w-7xl mx-auto">
+          {/* Left: Brand Wordmark */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+              <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 fill-amber-400 animate-pulse" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white font-festive whitespace-nowrap">
+                DIWALI CELEBRATION
+              </span>
+              <span className="text-[9px] text-amber-400/80 hidden sm:inline -mt-0.5">
+                दीपोत्सव महामहोत्सव
+              </span>
+            </div>
           </div>
-          <span className="text-base font-bold tracking-tight text-white font-festive whitespace-nowrap shrink-0">
-            DIWALI CELEBRATION
-          </span>
+
+          {/* Center: Backdrop Scene Switcher - ALWAYS VISIBLE ON ALL SCREENS! */}
+          <div className="flex items-center bg-zinc-900/90 border border-amber-500/35 rounded-xl p-0.5 shadow-inner shrink-0">
+            <button
+              onClick={() => {
+                setCurrentBgId('courtyard');
+                setBgError(false);
+              }}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-medium rounded-lg transition-all flex items-center gap-1 ${
+                currentBgId === 'courtyard'
+                  ? 'bg-amber-500/30 text-amber-300 font-bold border border-amber-400/50 shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Moonlit Courtyard (चंद्रोदय आँगन)"
+            >
+              <span>🌕</span>
+              <span className="whitespace-nowrap">Courtyard</span>
+            </button>
+            <button
+              onClick={() => {
+                setCurrentBgId('playground');
+                setBgError(false);
+              }}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-medium rounded-lg transition-all flex items-center gap-1 ${
+                currentBgId === 'playground'
+                  ? 'bg-amber-500/30 text-amber-300 font-bold border border-amber-400/50 shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Celebration Ground (उत्सव मैदान)"
+            >
+              <span>🎪</span>
+              <span className="whitespace-nowrap">Ground</span>
+            </button>
+            <button
+              onClick={() => {
+                setCurrentBgId('terrace');
+                setBgError(false);
+              }}
+              className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-medium rounded-lg transition-all flex items-center gap-1 ${
+                currentBgId === 'terrace'
+                  ? 'bg-amber-500/30 text-amber-300 font-bold border border-amber-400/50 shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Rooftop Terrace (शांत छत)"
+            >
+              <span>🪔</span>
+              <span className="whitespace-nowrap">Terrace</span>
+            </button>
+          </div>
+
+          {/* Right: Live Count Badge & Quick Audio */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <GlobalCelebrationBadge
+              stats={celebrationStats}
+              latestActivity={latestActivity}
+              onClick={() => setIsGlobalStatsOpen(true)}
+            />
+
+            {/* Sitar toggle */}
+            <button
+              onClick={toggleAmbientMusic}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 text-xs font-medium rounded-xl border transition-all flex items-center gap-1 ${
+                isMusicPlaying
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-400/60 shadow-md'
+                  : 'bg-zinc-900/90 text-zinc-400 border-zinc-800 hover:text-white'
+              }`}
+              title="Toggle Indian Sitar & Tanpura Festive Music"
+            >
+              <Music className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden md:inline">{isMusicPlaying ? 'Sitar ON' : 'Sitar'}</span>
+            </button>
+
+            {/* Master Sound Effects Mute */}
+            <button
+              onClick={onToggleMute}
+              className="p-1.5 sm:p-2 text-zinc-300 hover:text-white bg-zinc-900/90 border border-zinc-800 rounded-xl transition-colors"
+              title={isMuted ? 'Unmute Sound Effects' : 'Mute Sound Effects'}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
+            </button>
+          </div>
         </div>
 
-        {/* Zone 2: Primary Navigation Tabs */}
-        <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-zinc-300">
-          <button
-            onClick={() => setActiveTab('terrace')}
-            className={`transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
-              activeTab === 'terrace' ? 'text-amber-400 font-semibold' : 'hover:text-white'
-            }`}
-          >
-            <span>Fireworks Arena</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('mithai')}
-            className={`transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
-              activeTab === 'mithai' ? 'text-amber-400 font-semibold' : 'hover:text-white'
-            }`}
-          >
-            <Gift className="w-3.5 h-3.5" />
-            <span>Mithai Dabba ({sweetsDistributedCount})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('weather')}
-            className={`transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
-              activeTab === 'weather' ? 'text-amber-400 font-semibold' : 'hover:text-white'
-            }`}
-          >
-            <Moon className="w-3.5 h-3.5" />
-            <span>Night Sky &amp; Moon</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('guide')}
-            className={`transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
-              activeTab === 'guide' ? 'text-amber-400 font-semibold' : 'hover:text-white'
-            }`}
-          >
-            <Info className="w-3.5 h-3.5" />
-            <span>Traditions</span>
-          </button>
-
-          {onReplayGreeting && (
+        {/* Tier 2: Universal Features Ribbon - VISIBLE & INTERACTIVE ON EVERY SINGLE SCREEN! */}
+        <div className="bg-zinc-900/95 border-t border-zinc-800/80 px-2 sm:px-4 py-1.5">
+          <div className="max-w-7xl mx-auto flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none justify-start md:justify-center">
+            {/* 1. Fireworks Arena */}
             <button
-              onClick={onReplayGreeting}
-              className="text-zinc-400 hover:text-amber-300 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
-              title="Watch 3-2-1 Countdown &amp; Happy Diwali Greeting Animation"
+              onClick={() => setActiveTab('terrace')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                activeTab === 'terrace'
+                  ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50 shadow-sm'
+                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/80'
+              }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Diwali Greeting</span>
+              <span>Fireworks Arena</span>
             </button>
-          )}
-        </nav>
 
-        {/* Zone 3: Global Live Counter, Scene Selector, People & Audio Controls */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          {/* Live Global Celebration Counter Badge */}
-          <GlobalCelebrationBadge
-            stats={celebrationStats}
-            latestActivity={latestActivity}
-            onClick={() => setIsGlobalStatsOpen(true)}
-          />
+            {/* 2. Mithai Dabba */}
+            <button
+              onClick={() => setActiveTab('mithai')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                activeTab === 'mithai'
+                  ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50 shadow-sm'
+                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/80'
+              }`}
+            >
+              <Gift className="w-3.5 h-3.5 text-amber-400" />
+              <span>Mithai Dabba</span>
+              <span className="px-1.5 py-0.2 text-[10px] bg-amber-400/20 text-amber-300 rounded-full font-bold">
+                {sweetsDistributedCount}
+              </span>
+            </button>
 
-          {/* Scene Switcher: Playground / Terrace */}
-          <div className="flex items-center bg-zinc-900/90 border border-amber-500/30 rounded-lg p-0.5 shadow-sm">
+            {/* 3. Night Sky & Weather */}
             <button
-              onClick={() => setCurrentBgId('playground')}
-              className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
-                currentBgId === 'playground'
-                  ? 'bg-amber-500/25 text-amber-300 font-semibold shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
+              onClick={() => setActiveTab('weather')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                activeTab === 'weather'
+                  ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50 shadow-sm'
+                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/80'
               }`}
-              title="Festival Community Ground full of lights and celebration"
             >
-              Playground
+              <Moon className="w-3.5 h-3.5 text-amber-400" />
+              <span>Night Sky &amp; Moon</span>
             </button>
+
+            {/* 4. People & Companions */}
             <button
-              onClick={() => setCurrentBgId('terrace')}
-              className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
-                currentBgId === 'terrace'
-                  ? 'bg-amber-500/25 text-amber-300 font-semibold shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Calm Rooftop Terrace with clay diyas overlooking city"
+              onClick={() => setIsManagePeopleOpen(true)}
+              className="px-3 py-1 text-xs font-semibold rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-800/80 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              title="Manage People"
             >
-              Terrace
+              <Users className="w-3.5 h-3.5 text-amber-400" />
+              <span>People</span>
+              <span className="px-1.5 py-0.2 text-[10px] bg-amber-400/20 text-amber-300 rounded-full font-bold">
+                {characters.length}
+              </span>
             </button>
+
+            {/* Quick Invite Link Button */}
+            <button
+              onClick={() => setIsManagePeopleOpen(true)}
+              className="px-3 py-1 text-xs font-bold rounded-lg text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-sm"
+              title="Invite Friends with Link to celebrate together live!"
+            >
+              <Share2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>Invite Link</span>
+            </button>
+
+            {/* 5. Ambience Sound Controls */}
+            <button
+              onClick={() => setIsAtmosphereModalOpen(true)}
+              className="px-3 py-1 text-xs font-semibold rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-800/80 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              title="Ambient Sounds: Wind, Distant City Fireworks, Festive Sitar"
+            >
+              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+              <span>Ambience</span>
+            </button>
+
+            {/* 6. Traditions & Customs */}
+            <button
+              onClick={() => setActiveTab('guide')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                activeTab === 'guide'
+                  ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50 shadow-sm'
+                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/80'
+              }`}
+            >
+              <Info className="w-3.5 h-3.5 text-amber-400" />
+              <span>Traditions</span>
+            </button>
+
+            {/* 7. Watch Greeting Animation Replay */}
+            {onReplayGreeting && (
+              <button
+                onClick={onReplayGreeting}
+                className="px-3 py-1 text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/30 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                title="Watch 3-2-1 Countdown & Happy Diwali Greeting Animation"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Diwali Greeting</span>
+              </button>
+            )}
           </div>
-
-          <button
-            onClick={() => setIsManagePeopleOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/40 rounded-lg transition-colors"
-            title="Add, Rename, or Invite People to Celebration"
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>People ({characters.length})</span>
-          </button>
-
-          <button
-            onClick={toggleAmbientMusic}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-              isMusicPlaying
-                ? 'bg-amber-500/20 text-amber-300 border-amber-400/60 shadow-md'
-                : 'bg-zinc-900/90 text-zinc-400 border-zinc-800 hover:text-white'
-            }`}
-            title="Toggle Indian Sitar &amp; Tanpura Ambient Music"
-          >
-            <Music className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isMusicPlaying ? 'Sitar ON' : 'Festive Sitar'}</span>
-          </button>
-
-          <button
-            onClick={onToggleMute}
-            className="p-2 text-zinc-300 hover:text-white bg-zinc-900/90 border border-zinc-800 rounded-lg transition-colors"
-            title={isMuted ? 'Unmute Sound Effects' : 'Mute Sound Effects'}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
-          </button>
         </div>
       </header>
 
       {/* Minimal Floating Cracker Placement Suggestion */}
       {selectedCrackerForPlacement && activeTab === 'terrace' && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 px-3.5 py-1.5 bg-zinc-950/92 backdrop-blur-xl border border-amber-500/40 rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.8)] flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute top-24 sm:top-25 left-1/2 -translate-x-1/2 z-40 px-3.5 py-1.5 bg-zinc-950/92 backdrop-blur-xl border border-amber-500/40 rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.8)] flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
             <Sparkles className="w-3 h-3 text-amber-400" />
           </div>
@@ -677,6 +842,7 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
       {/* Bottom Inventory Dock (Visible on terrace view) */}
       {activeTab === 'terrace' && (
         <InventoryDock
+          selectedCracker={selectedCrackerForPlacement}
           onSelectCracker={(type) => setSelectedCrackerForPlacement(type)}
           onOpenSweetsBox={() => setActiveTab('mithai')}
           onTriggerGrandFinale={handleGrandFinale}
@@ -732,6 +898,26 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
         onAddCharacter={handleAddCharacter}
         onRemoveCharacter={handleRemoveCharacter}
       />
+
+      {/* Background Ambience Controls Modal (Wind, Distant City Fireworks, Festive Music) */}
+      <AtmosphereControlsModal
+        isOpen={isAtmosphereModalOpen}
+        onClose={() => setIsAtmosphereModalOpen(false)}
+      />
+
+      {/* Invite Companion Welcome Modal (for friends who join via invite link) */}
+      {showInviteWelcome && (
+        <InviteWelcomeModal
+          invitedBy={invitedByParam || 'Friend'}
+          onJoin={handleJoinFromInvite}
+          onDismiss={() => {
+            setShowInviteWelcome(false);
+            try {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch {}
+          }}
+        />
+      )}
 
       {/* Night Sky & Weather Tab View */}
       {activeTab === 'weather' && (
