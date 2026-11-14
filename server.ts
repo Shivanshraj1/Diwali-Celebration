@@ -9,8 +9,11 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
+// In dev mode on AI Studio, NGINX uses PORT=8080 while the Node dev server must run on port 3000 (DEFAULT_APP_PORT)
+const PORT = isProd
+  ? Number(process.env.PORT || process.env.DEFAULT_APP_PORT || 3000)
+  : Number(process.env.DEFAULT_APP_PORT || 3000);
 
 app.use(express.json());
 
@@ -375,7 +378,10 @@ async function startServer() {
   if (!isProd) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server }
+      },
       appType: 'spa'
     });
     app.use(vite.middlewares);

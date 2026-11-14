@@ -1,0 +1,408 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 0. Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Shared Helper Primitives
+    // =========================================================================
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isNonEmptyString(val, maxLen) {
+      return val is string && val.size() > 0 && val.size() <= maxLen;
+    }
+
+    function isOptionalString(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    function validGender(val) {
+      return val in ['female', 'male'];
+    }
+
+    function validDress(val) {
+      return val in ['saree', 'lehenga', 'anarkali', 'suit', 'kurta', 'sherwani', 'indo_western'];
+    }
+
+    function validAccessory(val) {
+      return val in ['none', 'dupatta', 'pagdi', 'shawl', 'jhumka', 'mala', 'bindi', 'glasses'];
+    }
+
+    function validBgScene(val) {
+      return val in ['courtyard', 'playground', 'terrace'];
+    }
+
+    function validWeatherMode(val) {
+      return val in ['starlit', 'lanterns', 'mist', 'distant_fireworks'];
+    }
+
+    function validDirection(val) {
+      return val in ['left', 'right'];
+    }
+
+    function validCharacterState(val) {
+      return val in ['idle', 'walking', 'igniting', 'running_back', 'covering_ears', 'celebrating', 'sweets'];
+    }
+
+    function validEventType(val) {
+      return val in ['join', 'leave', 'cracker', 'sweet', 'wish', 'diya', 'interact', 'joy'];
+    }
+
+    function isRoomHost(roomId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/celebrations/$(roomId))
+        && get(/databases/$(database)/documents/celebrations/$(roomId)).data.hostUid == request.auth.uid;
+    }
+
+    // =========================================================================
+    // Entity Validation Blueprints
+    // =========================================================================
+
+    function isValidPublicUserProfile(data, uid) {
+      return data.keys().hasAll(['uid', 'displayName', 'photoURL', 'gender', 'dressStyle', 'outfitColor', 'accentBg', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'photoURL', 'gender', 'dressStyle', 'outfitColor', 'accentBg', 'accessory', 'updatedAt'])
+        && data.uid == uid
+        && isValidId(data.uid)
+        && isNonEmptyString(data.displayName, 60)
+        && isOptionalString(data.photoURL, 200000)
+        && validGender(data.gender)
+        && validDress(data.dressStyle)
+        && isNonEmptyString(data.outfitColor, 80)
+        && isNonEmptyString(data.accentBg, 80)
+        && (!('accessory' in data) || validAccessory(data.accessory))
+        && data.updatedAt == request.time;
+    }
+
+    function isValidPrivateAccount(data, uid) {
+      return data.keys().hasAll(['uid', 'email', 'lastLoginAt'])
+        && data.keys().hasOnly(['uid', 'email', 'createdAt', 'lastLoginAt'])
+        && data.uid == uid
+        && isValidId(data.uid)
+        && isNonEmptyString(data.email, 254)
+        && data.lastLoginAt == request.time
+        && (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidCelebrationRoom(data, roomId) {
+      return data.keys().hasAll([
+          'roomId', 'title', 'hostUid', 'hostName', 'inviteCode',
+          'bgScene', 'weatherMode', 'crackersIgnited', 'sweetsShared',
+          'wishesSent', 'diyasLit', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'roomId', 'title', 'hostUid', 'hostName', 'inviteCode',
+          'bgScene', 'weatherMode', 'crackersIgnited', 'sweetsShared',
+          'wishesSent', 'diyasLit', 'createdAt', 'updatedAt'
+        ])
+        && data.roomId == roomId
+        && isValidId(data.roomId)
+        && isNonEmptyString(data.title, 80)
+        && isValidId(data.hostUid)
+        && isNonEmptyString(data.hostName, 60)
+        && isNonEmptyString(data.inviteCode, 32)
+        && data.inviteCode.matches('^[a-zA-Z0-9_\\-]+$')
+        && validBgScene(data.bgScene)
+        && validWeatherMode(data.weatherMode)
+        && data.crackersIgnited is number && data.crackersIgnited >= 0
+        && data.sweetsShared is number && data.sweetsShared >= 0
+        && data.wishesSent is number && data.wishesSent >= 0
+        && data.diyasLit is number && data.diyasLit >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidParticipant(data, roomId, uid) {
+      return data.keys().hasAll([
+          'uid', 'roomId', 'name', 'relation', 'photoURL', 'gender', 'dressStyle',
+          'outfitColor', 'accentBg', 'xPercent', 'yPercent', 'direction',
+          'state', 'online', 'joinedAt', 'lastSeenAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'roomId', 'name', 'relation', 'photoURL', 'gender', 'dressStyle',
+          'outfitColor', 'accentBg', 'accessory', 'xPercent', 'yPercent', 'direction',
+          'state', 'online', 'joinedAt', 'lastSeenAt'
+        ])
+        && data.uid == uid
+        && data.roomId == roomId
+        && isValidId(data.uid)
+        && isValidId(data.roomId)
+        && isNonEmptyString(data.name, 60)
+        && isNonEmptyString(data.relation, 60)
+        && isOptionalString(data.photoURL, 200000)
+        && validGender(data.gender)
+        && validDress(data.dressStyle)
+        && isNonEmptyString(data.outfitColor, 80)
+        && isNonEmptyString(data.accentBg, 80)
+        && (!('accessory' in data) || validAccessory(data.accessory))
+        && data.xPercent is number && data.xPercent >= 5 && data.xPercent <= 95
+        && data.yPercent is number && data.yPercent >= 45 && data.yPercent <= 92
+        && validDirection(data.direction)
+        && validCharacterState(data.state)
+        && data.online is bool
+        && data.joinedAt is timestamp
+        && data.lastSeenAt == request.time;
+    }
+
+    function isValidCelebrationEvent(data, roomId, eventId) {
+      return data.keys().hasAll(['eventId', 'roomId', 'type', 'uid', 'senderName', 'detail', 'createdAt'])
+        && data.keys().hasOnly([
+          'eventId', 'roomId', 'type', 'uid', 'senderName', 'senderPhotoURL',
+          'detail', 'crackerType', 'sweetType', 'targetUid',
+          'xPercent', 'yPercent', 'createdAt'
+        ])
+        && data.eventId == eventId
+        && data.roomId == roomId
+        && isValidId(data.eventId)
+        && isValidId(data.roomId)
+        && validEventType(data.type)
+        && data.uid == request.auth.uid
+        && isNonEmptyString(data.senderName, 60)
+        && (!('senderPhotoURL' in data) || isOptionalString(data.senderPhotoURL, 200000))
+        && isNonEmptyString(data.detail, 240)
+        && (!('crackerType' in data) || data.crackerType in ['charkhi', 'anar', 'phooljhadi', 'rocket', 'skyshot', 'sky_letters'])
+        && (!('sweetType' in data) || data.sweetType in ['kaju_katli', 'motichoor_ladoo', 'gulab_jamun', 'jalebi', 'besan_barfi'])
+        && (!('targetUid' in data) || isValidId(data.targetUid))
+        && (!('xPercent' in data) || (data.xPercent is number && data.xPercent >= 0 && data.xPercent <= 100))
+        && (!('yPercent' in data) || (data.yPercent is number && data.yPercent >= 0 && data.yPercent <= 100))
+        && data.createdAt == request.time;
+    }
+
+    function isValidRoomMessage(data, roomId, messageId) {
+      return data.keys().hasAll(['messageId', 'roomId', 'uid', 'senderName', 'text', 'kind', 'createdAt'])
+        && data.keys().hasOnly([
+          'messageId', 'roomId', 'uid', 'senderName', 'senderPhotoURL',
+          'text', 'kind', 'recipientUid', 'recipientName', 'createdAt'
+        ])
+        && data.messageId == messageId
+        && data.roomId == roomId
+        && isValidId(data.messageId)
+        && isValidId(data.roomId)
+        && data.uid == request.auth.uid
+        && isValidId(data.uid)
+        && isNonEmptyString(data.senderName, 60)
+        && (!('senderPhotoURL' in data) || isOptionalString(data.senderPhotoURL, 200000))
+        && isNonEmptyString(data.text, 400)
+        && data.kind in ['chat', 'greeting']
+        && (!('recipientUid' in data) || isValidId(data.recipientUid))
+        && (!('recipientName' in data) || isNonEmptyString(data.recipientName, 60))
+        && data.createdAt == request.time;
+    }
+
+    function isValidInvite(data, inviteCode) {
+      return data.keys().hasAll(['inviteCode', 'roomId', 'roomTitle', 'hostUid', 'hostName', 'status', 'createdAt', 'expiresAt'])
+        && data.keys().hasOnly(['inviteCode', 'roomId', 'roomTitle', 'hostUid', 'hostName', 'status', 'createdAt', 'expiresAt'])
+        && data.inviteCode == inviteCode
+        && data.inviteCode.size() >= 4 && data.inviteCode.size() <= 32
+        && data.inviteCode.matches('^[a-zA-Z0-9_\\-]+$')
+        && isValidId(data.roomId)
+        && isNonEmptyString(data.roomTitle, 80)
+        && isValidId(data.hostUid)
+        && isNonEmptyString(data.hostName, 60)
+        && data.status in ['active', 'revoked']
+        && data.createdAt is timestamp
+        && data.expiresAt is timestamp;
+    }
+
+    // =========================================================================
+    // Collection Match Blocks
+    // =========================================================================
+
+    // Public Celebration Profile (Owner-only access; zero directory scraping)
+    match /users/{uid} {
+      allow get: if isOwner(uid) && isValidId(uid);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isOwner(uid)
+        && isValidId(uid)
+        && isValidPublicUserProfile(incoming(), uid);
+      allow update: if isVerifiedUser()
+        && isOwner(uid)
+        && isValidId(uid)
+        && isValidPublicUserProfile(incoming(), uid)
+        && incoming().uid == existing().uid;
+      allow delete: if isOwner(uid) && isValidId(uid);
+
+      // Private PII subcollection (Strictly owner-only)
+      match /private/account {
+        allow get: if isOwner(uid) && isValidId(uid);
+        allow list: if false;
+        allow create: if isVerifiedUser()
+          && isOwner(uid)
+          && isValidId(uid)
+          && isValidPrivateAccount(incoming(), uid)
+          && incoming().createdAt == request.time;
+        allow update: if isVerifiedUser()
+          && isOwner(uid)
+          && isValidId(uid)
+          && isValidPrivateAccount(incoming(), uid)
+          && incoming().createdAt == existing().createdAt
+          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'lastLoginAt']);
+        allow delete: if isOwner(uid) && isValidId(uid);
+      }
+    }
+
+    // Shared Celebration Rooms
+    match /celebrations/{roomId} {
+      allow get: if isSignedIn() && isValidId(roomId);
+      allow list: if false;
+
+      allow create: if isVerifiedUser()
+        && isValidId(roomId)
+        && isValidCelebrationRoom(incoming(), roomId)
+        && incoming().hostUid == request.auth.uid
+        && incoming().createdAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(roomId)
+        && isValidCelebrationRoom(incoming(), roomId)
+        && incoming().roomId == existing().roomId
+        && incoming().hostUid == existing().hostUid
+        && incoming().createdAt == existing().createdAt
+        && (
+          // Action 1: Host updates scene, weather, title, or counters
+          (
+            existing().hostUid == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'title', 'hostName', 'inviteCode', 'bgScene', 'weatherMode',
+              'crackersIgnited', 'sweetsShared', 'wishesSent', 'diyasLit', 'updatedAt'
+            ])
+            && incoming().crackersIgnited >= existing().crackersIgnited && incoming().crackersIgnited <= existing().crackersIgnited + 10
+            && incoming().sweetsShared >= existing().sweetsShared && incoming().sweetsShared <= existing().sweetsShared + 5
+            && incoming().wishesSent >= existing().wishesSent && incoming().wishesSent <= existing().wishesSent + 5
+            && incoming().diyasLit >= existing().diyasLit && incoming().diyasLit <= existing().diyasLit + 5
+          )
+          ||
+          // Action 2: Authenticated participant increments celebration counters or ambience
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'crackersIgnited', 'sweetsShared', 'wishesSent', 'diyasLit', 'updatedAt'
+            ])
+            && incoming().crackersIgnited >= existing().crackersIgnited && incoming().crackersIgnited <= existing().crackersIgnited + 10
+            && incoming().sweetsShared >= existing().sweetsShared && incoming().sweetsShared <= existing().sweetsShared + 5
+            && incoming().wishesSent >= existing().wishesSent && incoming().wishesSent <= existing().wishesSent + 5
+            && incoming().diyasLit >= existing().diyasLit && incoming().diyasLit <= existing().diyasLit + 5
+          )
+        );
+
+      allow delete: if isValidId(roomId) && isRoomHost(roomId);
+
+      // Authenticated Online Participants
+      match /participants/{uid} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(uid);
+        allow list: if isSignedIn() && existing().roomId == roomId;
+
+        allow create: if isVerifiedUser()
+          && isValidId(roomId)
+          && isValidId(uid)
+          && isOwner(uid)
+          && isValidParticipant(incoming(), roomId, uid)
+          && incoming().joinedAt == request.time
+          && exists(/databases/$(database)/documents/celebrations/$(roomId));
+
+        allow update: if isVerifiedUser()
+          && isValidId(roomId)
+          && isValidId(uid)
+          && isOwner(uid)
+          && isValidParticipant(incoming(), roomId, uid)
+          && incoming().uid == existing().uid
+          && incoming().roomId == existing().roomId
+          && incoming().joinedAt == existing().joinedAt
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'relation', 'photoURL', 'gender', 'dressStyle',
+            'outfitColor', 'accentBg', 'accessory', 'xPercent', 'yPercent',
+            'direction', 'state', 'online', 'lastSeenAt'
+          ]);
+
+        allow delete: if isValidId(roomId) && isValidId(uid) && (isOwner(uid) || isRoomHost(roomId));
+      }
+
+      // Live Immutable Event Stream
+      match /events/{eventId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(eventId);
+        allow list: if isSignedIn() && existing().roomId == roomId;
+
+        allow create: if isVerifiedUser()
+          && isValidId(roomId)
+          && isValidId(eventId)
+          && isValidCelebrationEvent(incoming(), roomId, eventId)
+          && exists(/databases/$(database)/documents/celebrations/$(roomId));
+
+        allow update, delete: if false;
+      }
+
+      // Real-Time Room Chat & Festive Greetings
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(messageId);
+        allow list: if isSignedIn() && existing().roomId == roomId;
+
+        allow create: if isVerifiedUser()
+          && isValidId(roomId)
+          && isValidId(messageId)
+          && isValidRoomMessage(incoming(), roomId, messageId)
+          && exists(/databases/$(database)/documents/celebrations/$(roomId));
+
+        allow update: if false;
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(messageId)
+          && (existing().uid == request.auth.uid || isRoomHost(roomId));
+      }
+    }
+
+    // Shareable Invite Codes
+    match /invites/{inviteCode} {
+      allow get: if isSignedIn() && isValidId(inviteCode);
+      allow list: if isSignedIn() && existing().hostUid == request.auth.uid;
+
+      allow create: if isVerifiedUser()
+        && isValidId(inviteCode)
+        && isValidInvite(incoming(), inviteCode)
+        && incoming().hostUid == request.auth.uid
+        && incoming().status == 'active'
+        && incoming().createdAt == request.time
+        && incoming().expiresAt > request.time
+        && isRoomHost(incoming().roomId);
+
+      allow update: if isVerifiedUser()
+        && isValidId(inviteCode)
+        && isValidInvite(incoming(), inviteCode)
+        && existing().hostUid == request.auth.uid
+        && existing().status == 'active'
+        && incoming().inviteCode == existing().inviteCode
+        && incoming().roomId == existing().roomId
+        && incoming().hostUid == existing().hostUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'roomTitle', 'hostName', 'expiresAt']);
+
+      allow delete: if isValidId(inviteCode) && isSignedIn() && existing().hostUid == request.auth.uid;
+    }
+  }
+}

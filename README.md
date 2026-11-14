@@ -1,37 +1,43 @@
-# Diwali Celebration Web 🪔
+# Diwali Celebration Platform 🪔
 
-An immersive, highly interactive web application designed to bring the joy and lights of Diwali to your screen. Experience the festival of lights with physics-based virtual fireworks, interactive characters, traditional sweets, and festive music, all built seamlessly with modern web technologies.
-
-## ✨ Festive Diwali Experience
-
-![Diwali Playground](diwali.jpg)
+A real-time multiplayer Diwali celebration web application built with React, TypeScript, Tailwind CSS, Web Audio API, and Firebase Authentication & Firestore. Celebrate together live with friends and family across desktop, tablet, and mobile browsers.
 
 ## ✨ Features
 
-* **Interactive Cracker Arena:** Drag and drop a variety of virtual fireworks from the inventory dock—including *Charkhi*, *Anar*, *Phooljhadi*, *Rocket*, and *Skyshots*—onto the scene to ignite them.
-* **Physics-Based Visuals & Audio:** Each firework features highly detailed, physics-based particle effects perfectly synchronized with high-quality sound effects using the Web Audio API. 
-* **Dynamic Festive Environments:** Toggle between different celebration settings like the "Playground" and the "Terrace" under a glowing night sky.
-* **Animated Characters:** Interact with lively characters (e.g., Priya, Ananya, Kabir, and Aarav). Drag fireworks to them to see realistic ignition motions, or read their dynamic festive reactions via chat bubbles.
-* **Mithai Dabba (Sweets Box):** Share the joy by distributing traditional Diwali sweets to the characters on screen, triggering warm, celebratory animations.
-* **Immersive Intro Showreel:** Begins with a stunning 10-second WebGL/Canvas-based motion graphics sequence and a 3-2-1 countdown that bursts into a vibrant Diwali greeting.
-* **Festive Controls:** Toggle background Sitar music, adjust the night sky settings, and track the number of "Live Celebrations" happening in the arena.
+* **Google Sign-In & Persistent Accounts:** Authenticate securely with Firebase Google Sign-In, maintain sessions across visits, and log out anytime.
+* **Real-Time Multiplayer Rooms:** Create or join shared celebration rooms via invite links, invite codes, or direct WhatsApp/native sharing with live online participant lists and join/leave toast notifications.
+* **Interactive Festive Wardrobe & Customization:** Dress up your avatar in real time with traditional attire (**Kurta-Pajama, Sherwani, Indo-Western, Saree, Lehenga, Anarkali, Salwar Suit**), **8 Silk & Zari colors**, **8 accessories** (Pagdi, Zari Dupatta, Embroidered Stole, Chandbali Jhumka, Pearl Mala, Maang-Tikka & Bindi, Festive Shades), pose preview toggles, and custom/Google profile photos.
+* **Synchronized Fireworks & Soundboard:** Burst *Charkhi*, *Anar*, *Phooljhadi*, *Rocket*, *Skyshots*, and *Sky Calligraphy* via drag-and-drop, touch gestures, or the Cracker Soundboard—all synchronized frame-to-frame with synthesized Web Audio acoustics and broadcast live across participants.
+* **Live Room Chat & Mithai Dabba:** Send festive greetings, direct friend wishes, and traditional Diwali sweets (*Kaju Katli*, *Motichoor Ladoo*, *Gulab Jamun*, *Jalebi*, *Besan Barfi*).
+* **Beat-Locked 3-2-1 Countdown Intro:** Synchronized 3-2-1 countdown & multi-shell skyshot greeting sequence.
+* **Atmospheric Night Sky & Scenes:** Switch between Starlit Courtyard, Celebration Ground, and Rooftop Terrace with floating sky lanterns, shooting stars, and Sitar ambient music.
 
 ## 🛠️ Tech Stack
 
-* **Frontend Framework:** React
-* **Styling:** Tailwind CSS
-* **Animations:** Framer Motion & Canvas/WebGL
-* **Audio:** Web Audio API
+* **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, Motion, Lucide React
+* **Backend & Real-Time Sync:** Express Dev/Prod Server, Firebase Authentication & Cloud Firestore
+* **Audio & Rendering:** HTML5 Canvas Particle Engine & Web Audio API Synthesizer
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-* Node.js (v16 or higher)
-* npm or yarn
+* Node.js (v18 or higher)
+* npm
 
-### Installation
+### Installation & Local Development
 
-1. **Clone the repository:**
+1. **Install dependencies:**
    ```bash
-   git clone [https://github.com/yourusername/diwali-celebration-app.git](https://github.com/yourusername/diwali-celebration-app.git)
-   cd diwali-celebration-app
+   npm install
+   ```
+2. **Environment setup:**
+   Copy `.env.example` to `.env` if custom environment variables are used (Firebase web client configuration is stored in `firebase-applet-config.json`, while `.env` files remain gitignored).
+3. **Run development server:**
+   ```bash
+   npm run dev
+   ```
+4. **Typecheck & production build:**
+   ```bash
+   npm run lint
+   npm run build
+   ```

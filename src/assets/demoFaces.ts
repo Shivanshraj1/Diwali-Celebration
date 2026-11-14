@@ -325,11 +325,102 @@ export const ANANYA_SVG_DATA_URI = `data:image/svg+xml;utf8,${encodeURIComponent
 </svg>
 `)}`;
 
+// 5. Meera (Royal Purple & Gold Silk Saree DP)
+export const MEERA_SVG_DATA_URI = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <radialGradient id="meeraBg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#581C87"/>
+      <stop offset="70%" stop-color="#1E1B4B"/>
+      <stop offset="100%" stop-color="#09090B"/>
+    </radialGradient>
+    <linearGradient id="meeraSkin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A"/>
+      <stop offset="60%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="meeraSaree" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A855F7"/>
+      <stop offset="60%" stop-color="#7E22CE"/>
+      <stop offset="100%" stop-color="#581C87"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="58" fill="url(#meeraBg)"/>
+  <circle cx="60" cy="60" r="57" fill="none" stroke="#C084FC" stroke-width="2" stroke-opacity="0.65"/>
+  <path d="M22 118 Q36 90 60 90 Q84 90 98 118 Z" fill="url(#meeraSaree)"/>
+  <path d="M28 118 L72 90 L82 90 L38 118 Z" fill="#FDE047" opacity="0.85"/>
+  <rect x="53" y="72" width="14" height="20" rx="4" fill="url(#meeraSkin)"/>
+  <path d="M49 84 Q60 92 71 84" stroke="#FDE047" stroke-width="2.2" fill="none"/>
+  <ellipse cx="60" cy="48" rx="28" ry="29" fill="#18181B"/>
+  <path d="M32 52 Q30 78 36 94 L42 92 Q38 72 40 52 Z" fill="#18181B"/>
+  <path d="M88 52 Q90 78 84 94 L78 92 Q82 72 80 52 Z" fill="#18181B"/>
+  <ellipse cx="60" cy="60" rx="21" ry="25" fill="url(#meeraSkin)"/>
+  <circle cx="36" cy="65" r="2.2" fill="#FDE047"/>
+  <circle cx="36" cy="71" r="3" fill="#A855F7"/>
+  <circle cx="84" cy="65" r="2.2" fill="#FDE047"/>
+  <circle cx="84" cy="71" r="3" fill="#A855F7"/>
+  <path d="M44 51 Q50 47 56 50" stroke="#09090B" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <path d="M64 50 Q70 47 76 51" stroke="#09090B" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <ellipse cx="50" cy="54" rx="4.8" ry="3" fill="#FFF"/>
+  <circle cx="51" cy="54" r="2.1" fill="#18181B"/>
+  <ellipse cx="70" cy="54" rx="4.8" ry="3" fill="#FFF"/>
+  <circle cx="71" cy="54" r="2.1" fill="#18181B"/>
+  <circle cx="60" cy="45" r="2" fill="#E11D48"/>
+  <path d="M60 53 L60 63 Q62 64 60 65" stroke="#B45309" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <path d="M52 70 Q60 77 68 70" stroke="#9D174D" stroke-width="2" stroke-linecap="round" fill="#E11D48"/>
+</svg>
+`)}`;
+
+// 6. Rohan (Saffron Orange Festive Kurta DP)
+export const ROHAN_SVG_DATA_URI = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <radialGradient id="rohanBg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#9A3412"/>
+      <stop offset="70%" stop-color="#1C1917"/>
+      <stop offset="100%" stop-color="#09090B"/>
+    </radialGradient>
+    <linearGradient id="rohanSkin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A"/>
+      <stop offset="55%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#92400E"/>
+    </linearGradient>
+    <linearGradient id="rohanKurta" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="60%" stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#9A3412"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="58" fill="url(#rohanBg)"/>
+  <circle cx="60" cy="60" r="57" fill="none" stroke="#FB923C" stroke-width="2" stroke-opacity="0.65"/>
+  <path d="M24 118 Q36 90 60 90 Q84 90 96 118 Z" fill="url(#rohanKurta)"/>
+  <path d="M50 90 L50 84 Q60 81 70 84 L70 90 Z" fill="#FDE047"/>
+  <line x1="60" y1="84" x2="60" y2="118" stroke="#FEF08A" stroke-width="2.5"/>
+  <rect x="52" y="70" width="16" height="18" rx="4" fill="url(#rohanSkin)"/>
+  <path d="M36 46 Q42 22 62 22 Q80 24 84 46 Q72 35 60 35 Q48 35 36 46 Z" fill="#18181B"/>
+  <ellipse cx="60" cy="58" rx="22" ry="25" fill="url(#rohanSkin)"/>
+  <ellipse cx="37" cy="58" rx="3.5" ry="5.5" fill="#D97706"/>
+  <ellipse cx="83" cy="58" rx="3.5" ry="5.5" fill="#D97706"/>
+  <path d="M43 47 Q50 43 57 46" stroke="#18181B" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+  <path d="M63 46 Q70 43 77 47" stroke="#18181B" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+  <ellipse cx="50" cy="52" rx="4.5" ry="3" fill="#FFF"/>
+  <circle cx="51.5" cy="52" r="2.2" fill="#18181B"/>
+  <ellipse cx="70" cy="52" rx="4.5" ry="3" fill="#FFF"/>
+  <circle cx="71.5" cy="52" r="2.2" fill="#18181B"/>
+  <line x1="60" y1="36" x2="60" y2="44" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M60 50 L60 62 Q63 63 60 64" stroke="#92400E" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <path d="M51 68 Q60 76 69 68" stroke="#78350F" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M52 68 Q60 75 68 68" fill="#FFF"/>
+</svg>
+`)}`;
+
 export const DEMO_FACE_MAP: Record<string, string> = {
   aarav: AARAV_SVG_DATA_URI,
   priya: PRIYA_SVG_DATA_URI,
   kabir: KABIR_SVG_DATA_URI,
-  ananya: ANANYA_SVG_DATA_URI
+  ananya: ANANYA_SVG_DATA_URI,
+  meera: MEERA_SVG_DATA_URI,
+  rohan: ROHAN_SVG_DATA_URI
 };
 
 /**
@@ -341,5 +432,7 @@ export const getFallbackAvatarForCharacter = (idOrName: string): string => {
   if (key.includes('priya')) return PRIYA_SVG_DATA_URI;
   if (key.includes('kabir')) return KABIR_SVG_DATA_URI;
   if (key.includes('ananya')) return ANANYA_SVG_DATA_URI;
+  if (key.includes('meera')) return MEERA_SVG_DATA_URI;
+  if (key.includes('rohan')) return ROHAN_SVG_DATA_URI;
   return AARAV_SVG_DATA_URI;
 };

@@ -8,8 +8,7 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
-  Sliders,
-  Check
+  Sliders
 } from 'lucide-react';
 
 interface AtmosphereControlsModalProps {
@@ -56,53 +55,55 @@ export const AtmosphereControlsModal: React.FC<AtmosphereControlsModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-zinc-950 border border-amber-500/40 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-zinc-800 bg-zinc-900/80 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+    <div
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-2.5 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+    >
+      <div className="relative w-full max-w-md bg-zinc-950 border border-amber-500/40 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh]">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-zinc-800 bg-zinc-900/80 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0">
               <Sliders className="w-4 h-4 text-amber-400" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white font-festive">
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-white font-festive truncate">
                 Audio Atmosphere &amp; Ambience
               </h3>
-              <p className="text-[11px] text-zinc-400">
-                Immersive night wind, distant city, and faint festive music
+              <p className="text-[11px] text-zinc-400 truncate">
+                Evening wind, distant fireworks &amp; sitar notes
               </p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-white bg-zinc-900 rounded-full transition-colors"
+            aria-label="Close ambience settings"
+            className="min-h-[40px] min-w-[40px] flex items-center justify-center text-zinc-400 hover:text-white bg-zinc-900 rounded-full transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-5 space-y-4">
-          {/* Master Ambience Toggle & Volume */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4">
           <div className="p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 {settings.enabled ? (
                   <Volume2 className="w-4 h-4 text-amber-400" />
                 ) : (
                   <VolumeX className="w-4 h-4 text-zinc-500" />
                 )}
-                <span className="text-xs font-semibold text-white">
-                  Background Ambience
-                </span>
+                <span className="text-xs font-semibold text-white">Background Ambience</span>
               </div>
 
               <button
+                type="button"
                 onClick={handleToggleMaster}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                className={`min-h-[38px] px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
                   settings.enabled
-                    ? 'bg-amber-500/25 text-amber-300 border-amber-400/50 shadow-sm'
+                    ? 'bg-amber-500/25 text-amber-300 border-amber-400/50'
                     : 'bg-zinc-800 text-zinc-400 border-zinc-700'
                 }`}
               >
@@ -110,8 +111,7 @@ export const AtmosphereControlsModal: React.FC<AtmosphereControlsModalProps> = (
               </button>
             </div>
 
-            {/* Volume Slider */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between text-[11px] text-zinc-400">
                 <span>Ambience Volume</span>
                 <span className="font-mono text-amber-300">{Math.round(settings.volume * 100)}%</span>
@@ -123,121 +123,85 @@ export const AtmosphereControlsModal: React.FC<AtmosphereControlsModalProps> = (
                 step="0.05"
                 value={settings.volume}
                 onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                className="w-full accent-amber-400 cursor-pointer h-1.5 bg-zinc-800 rounded-lg"
+                className="w-full accent-amber-400 cursor-pointer h-2 bg-zinc-800 rounded-lg"
               />
             </div>
           </div>
 
-          {/* Individual Layers */}
           <div className="space-y-2">
             <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
               Ambient Audio Layers
             </span>
 
-            {/* Layer 1: Soft Night Wind */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center">
-                  <Wind className="w-4 h-4 text-sky-400" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-zinc-200">
-                    Soft Evening Wind
-                  </div>
-                  <div className="text-[10px] text-zinc-400">
-                    Gentle breeze murmuring across lanterns &amp; open skies
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => handleToggleLayer('wind')}
-                className={`w-9 h-5 rounded-full transition-colors relative ${
-                  settings.wind ? 'bg-amber-400' : 'bg-zinc-800'
-                }`}
+            {[
+              {
+                key: 'wind' as const,
+                title: 'Soft Evening Wind',
+                desc: 'Gentle breeze across lanterns & open skies',
+                icon: <Wind className="w-4 h-4 text-sky-400" />,
+                active: settings.wind
+              },
+              {
+                key: 'city' as const,
+                title: 'Distant City & Fireworks',
+                desc: 'Faint horizon bursts and evening hum',
+                icon: <Building2 className="w-4 h-4 text-amber-400" />,
+                active: settings.city
+              },
+              {
+                key: 'music' as const,
+                title: 'Festive Sitar & Tanpura',
+                desc: 'Soft classical tanpura & sitar melody',
+                icon: <Music className="w-4 h-4 text-rose-400" />,
+                active: settings.music
+              }
+            ].map((item) => (
+              <div
+                key={item.key}
+                className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 gap-3"
               >
-                <span
-                  className={`w-3.5 h-3.5 rounded-full bg-black absolute top-0.5 transition-transform ${
-                    settings.wind ? 'left-5' : 'left-1'
-                  }`}
-                />
-              </button>
-            </div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0">
+                    {item.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-zinc-200 truncate">{item.title}</div>
+                    <div className="text-[10px] text-zinc-400 truncate">{item.desc}</div>
+                  </div>
+                </div>
 
-            {/* Layer 2: Distant City & Far Horizon Fireworks */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center">
-                  <Building2 className="w-4 h-4 text-amber-400" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-zinc-200">
-                    Distant City &amp; Far Fireworks
-                  </div>
-                  <div className="text-[10px] text-zinc-400">
-                    Muted urban hum and faint horizon fireworks thuds
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleLayer(item.key)}
+                  aria-pressed={item.active}
+                  className={`min-w-[48px] min-h-[28px] rounded-full transition-colors relative shrink-0 cursor-pointer ${
+                    item.active ? 'bg-amber-400' : 'bg-zinc-800'
+                  }`}
+                >
+                  <span
+                    className={`w-5 h-5 rounded-full bg-black absolute top-1 transition-transform ${
+                      item.active ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
               </div>
-
-              <button
-                onClick={() => handleToggleLayer('city')}
-                className={`w-9 h-5 rounded-full transition-colors relative ${
-                  settings.city ? 'bg-amber-400' : 'bg-zinc-800'
-                }`}
-              >
-                <span
-                  className={`w-3.5 h-3.5 rounded-full bg-black absolute top-0.5 transition-transform ${
-                    settings.city ? 'left-5' : 'left-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Layer 3: Faint Festive Music */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center">
-                  <Music className="w-4 h-4 text-rose-400" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-zinc-200">
-                    Faint Festive Music
-                  </div>
-                  <div className="text-[10px] text-zinc-400">
-                    Indian tanpura drone &amp; subtle drifting sitar notes
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => handleToggleLayer('music')}
-                className={`w-9 h-5 rounded-full transition-colors relative ${
-                  settings.music ? 'bg-amber-400' : 'bg-zinc-800'
-                }`}
-              >
-                <span
-                  className={`w-3.5 h-3.5 rounded-full bg-black absolute top-0.5 transition-transform ${
-                    settings.music ? 'left-5' : 'left-1'
-                  }`}
-                />
-              </button>
-            </div>
+            ))}
           </div>
 
-          {/* Test Distant Firework Button */}
-          <div className="pt-1 flex items-center justify-between">
+          <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
             <button
+              type="button"
               onClick={handleTestDistantFirework}
-              className="px-3 py-1.5 text-xs text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/30 rounded-xl transition-all flex items-center gap-1.5"
+              className="min-h-[42px] px-3 py-1.5 text-xs text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/30 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>{testedBurst ? 'Boom heard in distance! ✨' : 'Preview Distant Firework Boom'}</span>
+              <span>{testedBurst ? 'Boom heard! ✨' : 'Preview Distant Boom'}</span>
             </button>
 
             <button
+              type="button"
               onClick={onClose}
-              className="px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold rounded-xl transition-colors shadow-md"
+              className="min-h-[42px] px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold rounded-xl transition-colors shadow-md cursor-pointer"
             >
               Done
             </button>

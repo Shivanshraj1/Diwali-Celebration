@@ -27,8 +27,58 @@
 }
 
 @keyframes float-gentle {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -6px, 0); }
+}
+
+@keyframes lantern-sway {
+  0%, 100% { transform: rotate(var(--sway-angle, 4deg)) translate3d(0, 0, 0); }
+  50% { transform: rotate(calc(var(--sway-angle, 4deg) * -1)) translate3d(var(--sway-shift, 2px), 0, 0); }
+}
+
+@keyframes tassel-sway {
+  0%, 100% { transform: rotate(calc(var(--sway-angle, 4deg) * -1.4)) skewX(-3deg); }
+  50% { transform: rotate(calc(var(--sway-angle, 4deg) * 1.4)) skewX(3deg); }
+}
+
+@keyframes char-idle-bob {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -3px, 0); }
+}
+
+@keyframes bulb-twinkle {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.animate-lantern-sway {
+  animation: lantern-sway var(--sway-duration, 4.8s) ease-in-out var(--sway-delay, 0s) infinite;
+  transform-origin: top center;
+  will-change: transform;
+}
+
+.animate-tassel-sway {
+  animation: tassel-sway var(--tassel-duration, 4.3s) ease-in-out var(--sway-delay, 0s) infinite;
+  transform-origin: top center;
+  will-change: transform;
+}
+
+.animate-char-idle {
+  animation: char-idle-bob 2.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-bulb-twinkle {
+  animation: bulb-twinkle 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-lantern-sway,
+  .animate-tassel-sway,
+  .animate-char-idle,
+  .animate-bulb-twinkle {
+    animation: none !important;
+  }
 }
 
 .animate-diya-glow {
@@ -58,3 +108,16 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
 }
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+html, body {
+  overscroll-behavior: none;
+}
+

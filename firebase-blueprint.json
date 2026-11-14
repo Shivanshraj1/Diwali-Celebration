@@ -1,0 +1,164 @@
+{
+  "entities": {
+    "PublicUserProfile": {
+      "title": "Public User Profile",
+      "description": "Owner celebration preferences (name, photo, dress, color). Zero PII.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "photoURL": { "type": "string", "maxLength": 200000 },
+        "gender": { "type": "string", "enum": ["female", "male"] },
+        "dressStyle": { "type": "string", "enum": ["saree", "lehenga", "anarkali", "suit", "kurta", "sherwani", "indo_western"] },
+        "outfitColor": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "accentBg": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "accessory": { "type": "string", "enum": ["none", "dupatta", "pagdi", "shawl", "jhumka", "mala", "bindi", "glasses"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "photoURL", "gender", "dressStyle", "outfitColor", "accentBg", "updatedAt"]
+    },
+    "PrivateUserAccount": {
+      "title": "Private User Account",
+      "description": "Strictly owner-only PII record storing email and login timestamps.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 254 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLoginAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "lastLoginAt"]
+    },
+    "CelebrationRoom": {
+      "title": "Celebration Room",
+      "description": "Shared real-time Diwali celebration arena hosted by an authenticated user.",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "hostUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "hostName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "inviteCode": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "bgScene": { "type": "string", "enum": ["courtyard", "playground", "terrace"] },
+        "weatherMode": { "type": "string", "enum": ["starlit", "lanterns", "mist", "distant_fireworks"] },
+        "crackersIgnited": { "type": "number" },
+        "sweetsShared": { "type": "number" },
+        "wishesSent": { "type": "number" },
+        "diyasLit": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["roomId", "title", "hostUid", "hostName", "inviteCode", "bgScene", "weatherMode", "crackersIgnited", "sweetsShared", "wishesSent", "diyasLit", "createdAt", "updatedAt"]
+    },
+    "Participant": {
+      "title": "Room Participant",
+      "description": "Live authenticated user participating inside a celebration room.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "relation": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "photoURL": { "type": "string", "maxLength": 200000 },
+        "gender": { "type": "string", "enum": ["female", "male"] },
+        "dressStyle": { "type": "string", "enum": ["saree", "lehenga", "anarkali", "suit", "kurta", "sherwani", "indo_western"] },
+        "outfitColor": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "accentBg": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "accessory": { "type": "string", "enum": ["none", "dupatta", "pagdi", "shawl", "jhumka", "mala", "bindi", "glasses"] },
+        "xPercent": { "type": "number" },
+        "yPercent": { "type": "number" },
+        "direction": { "type": "string", "enum": ["left", "right"] },
+        "state": { "type": "string", "enum": ["idle", "walking", "igniting", "running_back", "covering_ears", "celebrating", "sweets"] },
+        "online": { "type": "boolean" },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "lastSeenAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "roomId", "name", "relation", "photoURL", "gender", "dressStyle", "outfitColor", "accentBg", "xPercent", "yPercent", "direction", "state", "online", "joinedAt", "lastSeenAt"]
+    },
+    "CelebrationEvent": {
+      "title": "Celebration Event",
+      "description": "Immutable live event broadcast in a celebration room (fireworks, sweets, wishes, diyas, join/leave, friend interaction, joy confetti).",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["join", "leave", "cracker", "sweet", "wish", "diya", "interact", "joy"] },
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "senderPhotoURL": { "type": "string", "maxLength": 200000 },
+        "detail": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "crackerType": { "type": "string", "enum": ["charkhi", "anar", "phooljhadi", "rocket", "skyshot", "sky_letters"] },
+        "sweetType": { "type": "string", "enum": ["kaju_katli", "motichoor_ladoo", "gulab_jamun", "jalebi", "besan_barfi"] },
+        "targetUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "xPercent": { "type": "number" },
+        "yPercent": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["eventId", "roomId", "type", "uid", "senderName", "detail", "createdAt"]
+    },
+    "Invite": {
+      "title": "Celebration Invite",
+      "description": "Shareable invitation code mapping to a celebration room with expiration and revocation control.",
+      "type": "object",
+      "properties": {
+        "inviteCode": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomTitle": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "hostUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "hostName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "status": { "type": "string", "enum": ["active", "revoked"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["inviteCode", "roomId", "roomTitle", "hostUid", "hostName", "status", "createdAt", "expiresAt"]
+    },
+    "RoomMessage": {
+      "title": "Room Chat Message",
+      "description": "Real-time chat message or festive greeting sent between authenticated participants in the same celebration room.",
+      "type": "object",
+      "properties": {
+        "messageId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "senderPhotoURL": { "type": "string", "maxLength": 200000 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "kind": { "type": "string", "enum": ["chat", "greeting"] },
+        "recipientUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recipientName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["messageId", "roomId", "uid", "senderName", "text", "kind", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/PublicUserProfile" },
+      "description": "Owner-scoped celebration preferences (displayName, photo, outfit)."
+    },
+    "/users/{uid}/private/account": {
+      "schema": { "$ref": "#/entities/PrivateUserAccount" },
+      "description": "Strictly owner-only PII document containing email and account timestamps."
+    },
+    "/celebrations/{roomId}": {
+      "schema": { "$ref": "#/entities/CelebrationRoom" },
+      "description": "Shared multiplayer Diwali celebration room state and real-time counters."
+    },
+    "/celebrations/{roomId}/participants/{uid}": {
+      "schema": { "$ref": "#/entities/Participant" },
+      "description": "Authenticated online participants inside the celebration room."
+    },
+    "/celebrations/{roomId}/events/{eventId}": {
+      "schema": { "$ref": "#/entities/CelebrationEvent" },
+      "description": "Immutable live stream of fireworks, sweets, diyas, greetings, and join/leave updates."
+    },
+    "/celebrations/{roomId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/RoomMessage" },
+      "description": "Real-time room chat messages and festive greetings between friends."
+    },
+    "/invites/{inviteCode}": {
+      "schema": { "$ref": "#/entities/Invite" },
+      "description": "Validated invitation tokens allowing authenticated friends to join a host's room."
+    }
+  }
+}

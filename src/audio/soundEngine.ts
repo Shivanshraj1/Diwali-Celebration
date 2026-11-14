@@ -70,8 +70,55 @@ class SoundEngine {
     }
 
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      void this.ctx.resume().catch(() => {});
     }
+  }
+
+  public isContextRunning(): boolean {
+    return !!this.ctx && this.ctx.state === 'running';
+  }
+
+  public async unlock(): Promise<boolean> {
+    this.initContext();
+    if (!this.ctx) return false;
+    if (this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+      } catch {
+        return false;
+      }
+    }
+    return this.ctx.state === 'running';
+  }
+
+  /**
+   * Run a sound effect only when AudioContext is actively running so autoplay-blocked
+   * ticks never queue onto a frozen clock and burst out late when resumed later.
+   */
+  private withRunningContext(cb: (ctx: AudioContext, masterGain: GainNode) => void) {
+    this.initContext();
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+
+    if (this.ctx.state === 'running') {
+      cb(this.ctx, this.masterGain);
+      return;
+    }
+
+    const requestedAt = performance.now();
+    this.ctx
+      .resume()
+      .then(() => {
+        if (
+          this.ctx &&
+          this.masterGain &&
+          !this.isMuted &&
+          this.ctx.state === 'running' &&
+          performance.now() - requestedAt < 120
+        ) {
+          cb(this.ctx, this.masterGain);
+        }
+      })
+      .catch(() => {});
   }
 
   public setMute(muted: boolean) {
@@ -111,333 +158,413 @@ class SoundEngine {
   }
 
   /**
-   * Countdown tick sound (punchy mechanical & bass thump)
+   * Countdown beat sound (crisp percussive pulse + ascending D-major anticipation chime for 3 -> 2 -> 1)
    */
   public playCountdownTick(count: number) {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-    const now = this.ctx.currentTime;
+    this.withRunningContext((ctx, masterGain) => {
+      const now = ctx.currentTime;
 
-    // Sub thump
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    const baseFreq = count === 1 ? 160 : 220;
-    osc.frequency.setValueAtTime(baseFreq, now);
-    osc.frequency.exponentialRampToValueAtTime(30, now + 0.25);
+      // Ascending anticipation pitch aligned to D-major Happy Diwali resolution (D5 = 587.33 Hz)
+      const chimeFreq = count === 3 ? 440.0 : count === 2 ? 493.88 : 554.37;
+      const bassStartFreq = count === 1 ? 190 : 155;
 
-    gain.gain.setValueAtTime(0.6, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      // Tight sub-bass beat punch
+      const subOsc = ctx.createOscillator();
+      const subGain = ctx.createGain();
+      subOsc.type = 'sine';
+      subOsc.frequency.setValueAtTime(bassStartFreq, now);
+      subOsc.frequency.exponentialRampToValueAtTime(42, now + 0.18);
 
-    osc.connect(gain);
-    gain.connect(this.masterGain);
-    osc.start(now);
-    osc.stop(now + 0.26);
+      subGain.gain.setValueAtTime(0.001, now);
+      subGain.gain.linearRampToValueAtTime(0.55, now + 0.005);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
 
-    // High click
-    const clickOsc = this.ctx.createOscillator();
-    const clickGain = this.ctx.createGain();
-    clickOsc.type = 'triangle';
-    clickOsc.frequency.setValueAtTime(1400, now);
-    clickOsc.frequency.exponentialRampToValueAtTime(300, now + 0.04);
+      subOsc.connect(subGain);
+      subGain.connect(masterGain);
+      subOsc.start(now);
+      subOsc.stop(now + 0.24);
 
-    clickGain.gain.setValueAtTime(0.4, now);
-    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      // Clear tonal countdown chime
+      const chimeOsc = ctx.createOscillator();
+      const chimeGain = ctx.createGain();
+      chimeOsc.type = 'triangle';
+      chimeOsc.frequency.setValueAtTime(chimeFreq, now);
 
-    clickOsc.connect(clickGain);
-    clickGain.connect(this.masterGain);
-    clickOsc.start(now);
-    clickOsc.stop(now + 0.05);
+      chimeGain.gain.setValueAtTime(0.001, now);
+      chimeGain.gain.linearRampToValueAtTime(0.32, now + 0.006);
+      chimeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+      chimeOsc.connect(chimeGain);
+      chimeGain.connect(masterGain);
+      chimeOsc.start(now);
+      chimeOsc.stop(now + 0.3);
+
+      // Sharp clock transient click right at t = 0
+      const clickOsc = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      clickOsc.type = 'sine';
+      clickOsc.frequency.setValueAtTime(count === 1 ? 1800 : 1400, now);
+      clickOsc.frequency.exponentialRampToValueAtTime(420, now + 0.035);
+
+      clickGain.gain.setValueAtTime(0.32, now);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+      clickOsc.connect(clickGain);
+      clickGain.connect(masterGain);
+      clickOsc.start(now);
+      clickOsc.stop(now + 0.045);
+    });
   }
 
   /**
-   * "Happy Diwali" celebration blast: orchestral chime chord + deep explosion + glitter
+   * "Happy Diwali" celebration blast: orchestral chime chord + optional deep explosion + glitter
    */
-  public playHappyDiwaliBlast() {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-    const now = this.ctx.currentTime;
+  public playHappyDiwaliBlast(includeExplosion = true) {
+    this.withRunningContext((ctx, masterGain) => {
+      const now = ctx.currentTime;
 
-    // Deep celebratory boom
-    this.playExplosionSound(now, 1.2, true);
+      if (includeExplosion) {
+        // Deep celebratory boom
+        this.playExplosionSound(now, 1.2, true);
+      }
 
-    // Majestic chord (D major pentatonic / Indian Bhupali raag harmonics: D, F#, A, B, D)
-    const chordNotes = [293.66, 369.99, 440.0, 493.88, 587.33, 739.99, 880.0];
-    chordNotes.forEach((freq, idx) => {
-      if (!this.ctx || !this.masterGain) return;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+      // Majestic D major / Indian Bhupali raag resolution chord landing right on beat 0
+      const chordNotes = [587.33, 293.66, 369.99, 440.0, 493.88, 739.99, 880.0];
+      chordNotes.forEach((freq, idx) => {
+        const startOffset = idx === 0 ? 0 : idx * 0.025;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(freq, now + startOffset);
 
-      gain.gain.setValueAtTime(0, now + idx * 0.04);
-      gain.gain.linearRampToValueAtTime(0.18, now + idx * 0.04 + 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.8);
+        gain.gain.setValueAtTime(0.001, now + startOffset);
+        gain.gain.linearRampToValueAtTime(idx === 0 ? 0.24 : 0.16, now + startOffset + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.6);
 
-      osc.connect(gain);
-      gain.connect(this.masterGain);
-      osc.start(now + idx * 0.04);
-      osc.stop(now + 3.0);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now + startOffset);
+        osc.stop(now + 2.8);
+      });
+
+      // Shimmering chime wash
+      this.playSparkleArpeggio(now + 0.14, 8);
     });
+  }
 
-    // Shimmering chime wash
-    this.playSparkleArpeggio(now + 0.2, 8);
+  /**
+   * Frame-accurate single skyshot mortar launch sound (triggered right as rocket launches on canvas)
+   */
+  public playSkyshotLaunch() {
+    this.withRunningContext((ctx, masterGain) => {
+      const now = ctx.currentTime;
+
+      const thudOsc = ctx.createOscillator();
+      const thudGain = ctx.createGain();
+      thudOsc.type = 'triangle';
+      thudOsc.frequency.setValueAtTime(140, now);
+      thudOsc.frequency.exponentialRampToValueAtTime(30, now + 0.16);
+      thudGain.gain.setValueAtTime(0.45, now);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      thudOsc.connect(thudGain);
+      thudGain.connect(masterGain);
+      thudOsc.start(now);
+      thudOsc.stop(now + 0.2);
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(0.32);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1500, now);
+      filter.frequency.exponentialRampToValueAtTime(3400, now + 0.28);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.14, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(masterGain);
+      noise.start(now);
+      noise.stop(now + 0.32);
+    });
+  }
+
+  /**
+   * Frame-accurate skyshot burst sound (triggered on the exact canvas frame the rocket explodes)
+   */
+  public playSkyshotExplosion(intensity = 0.95) {
+    this.withRunningContext((ctx) => {
+      this.playExplosionSound(ctx.currentTime, intensity, false);
+    });
   }
 
   /**
    * Sizzling fuse sound
    */
   public playFuseSizzle(durationSeconds = 1.0) {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-    const now = this.ctx.currentTime;
+    this.withRunningContext((ctx, masterGain) => {
+      const now = ctx.currentTime;
 
-    const noiseBuffer = this.createNoiseBuffer(durationSeconds);
-    const noiseSource = this.ctx.createBufferSource();
-    noiseSource.buffer = noiseBuffer;
+      const noiseBuffer = this.createNoiseBuffer(durationSeconds);
+      const noiseSource = ctx.createBufferSource();
+      noiseSource.buffer = noiseBuffer;
 
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(3200, now);
-    filter.Q.setValueAtTime(4.0, now);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(3200, now);
+      filter.Q.setValueAtTime(4.0, now);
 
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.05, now);
-    gain.gain.linearRampToValueAtTime(0.35, now + 0.1);
-    gain.gain.linearRampToValueAtTime(0.25, now + durationSeconds - 0.1);
-    gain.gain.linearRampToValueAtTime(0.001, now + durationSeconds);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.linearRampToValueAtTime(0.35, now + 0.1);
+      gain.gain.linearRampToValueAtTime(0.25, now + durationSeconds - 0.1);
+      gain.gain.linearRampToValueAtTime(0.001, now + durationSeconds);
 
-    noiseSource.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.masterGain);
+      noiseSource.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
 
-    noiseSource.start(now);
-    noiseSource.stop(now + durationSeconds);
+      noiseSource.start(now);
+      noiseSource.stop(now + durationSeconds);
+    });
   }
 
   /**
    * Charkhi sound: Centrifugal rotational whistle + continuous ground spark crackle
    */
   public playCharkhiSound(durationSeconds = 4.5) {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-    const now = this.ctx.currentTime;
+    this.withRunningContext((ctx, masterGain) => {
+      const now = ctx.currentTime;
 
-    // Centrifugal rotational whistle (frequency oscillating & accelerating)
-    const osc = this.ctx.createOscillator();
-    const oscGain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(180, now);
-    osc.frequency.exponentialRampToValueAtTime(820, now + 1.2);
-    osc.frequency.setValueAtTime(800, now + durationSeconds - 1.2);
-    osc.frequency.exponentialRampToValueAtTime(140, now + durationSeconds);
+      // Centrifugal rotational whistle (frequency oscillating & accelerating)
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(820, now + Math.min(1.2, durationSeconds * 0.35));
+      osc.frequency.setValueAtTime(800, now + Math.max(0.1, durationSeconds - 1.2));
+      osc.frequency.exponentialRampToValueAtTime(140, now + durationSeconds);
 
-    const lfo = this.ctx.createOscillator();
-    const lfoGain = this.ctx.createGain();
-    lfo.frequency.setValueAtTime(8, now);
-    lfo.frequency.linearRampToValueAtTime(26, now + 1.5);
-    lfo.frequency.linearRampToValueAtTime(6, now + durationSeconds);
-    lfoGain.gain.setValueAtTime(120, now);
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.setValueAtTime(8, now);
+      lfo.frequency.linearRampToValueAtTime(26, now + Math.min(1.5, durationSeconds * 0.4));
+      lfo.frequency.linearRampToValueAtTime(6, now + durationSeconds);
+      lfoGain.gain.setValueAtTime(120, now);
 
-    lfo.connect(osc.frequency);
-    lfo.start(now);
-    lfo.stop(now + durationSeconds);
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+      lfo.start(now);
+      lfo.stop(now + durationSeconds);
 
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(1200, now);
-    filter.Q.setValueAtTime(6.0, now);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1200, now);
+      filter.Q.setValueAtTime(6.0, now);
 
-    oscGain.gain.setValueAtTime(0.05, now);
-    oscGain.gain.linearRampToValueAtTime(0.28, now + 0.5);
-    oscGain.gain.setValueAtTime(0.28, now + durationSeconds - 0.8);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, now + durationSeconds);
+      oscGain.gain.setValueAtTime(0.05, now);
+      oscGain.gain.linearRampToValueAtTime(0.28, now + Math.min(0.5, durationSeconds * 0.2));
+      oscGain.gain.setValueAtTime(0.28, now + Math.max(0.1, durationSeconds - 0.8));
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + durationSeconds);
 
-    osc.connect(filter);
-    filter.connect(oscGain);
-    oscGain.connect(this.masterGain);
-    osc.start(now);
-    osc.stop(now + durationSeconds);
+      osc.connect(filter);
+      filter.connect(oscGain);
+      oscGain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + durationSeconds);
 
-    // Continuous radial spark hiss
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = this.createNoiseBuffer(durationSeconds);
-    const noiseFilter = this.ctx.createBiquadFilter();
-    noiseFilter.type = 'highpass';
-    noiseFilter.frequency.setValueAtTime(2200, now);
+      // Continuous radial spark hiss
+      const noise = ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(durationSeconds);
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'highpass';
+      noiseFilter.frequency.setValueAtTime(2200, now);
 
-    const noiseGain = this.ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.1, now);
-    noiseGain.gain.linearRampToValueAtTime(0.35, now + 0.8);
-    noiseGain.gain.setValueAtTime(0.35, now + durationSeconds - 0.8);
-    noiseGain.gain.linearRampToValueAtTime(0.01, now + durationSeconds);
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.1, now);
+      noiseGain.gain.linearRampToValueAtTime(0.35, now + Math.min(0.8, durationSeconds * 0.25));
+      noiseGain.gain.setValueAtTime(0.35, now + Math.max(0.1, durationSeconds - 0.8));
+      noiseGain.gain.linearRampToValueAtTime(0.01, now + durationSeconds);
 
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(this.masterGain);
-    noise.start(now);
-    noise.stop(now + durationSeconds);
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(masterGain);
+      noise.start(now);
+      noise.stop(now + durationSeconds);
+    });
   }
 
   /**
    * Anar (Flower Pot) sound: Ascending crescendo fountain with roaring spark bursts
    */
   public playAnarSound(durationSeconds = 5.0) {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-    const now = this.ctx.currentTime;
+    this.withRunningContext((ctx, masterGain) => {
+      const now = ctx.currentTime;
+      const apexTime = Math.min(2.4, durationSeconds * 0.45);
 
-    // Escalating noise fountain
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = this.createNoiseBuffer(durationSeconds);
+      // Escalating noise fountain
+      const noise = ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(durationSeconds);
 
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(800, now);
-    filter.frequency.exponentialRampToValueAtTime(4500, now + 2.5);
-    filter.frequency.exponentialRampToValueAtTime(1200, now + durationSeconds);
-    filter.Q.setValueAtTime(2.0, now);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(800, now);
+      filter.frequency.exponentialRampToValueAtTime(4500, now + apexTime);
+      filter.frequency.exponentialRampToValueAtTime(1200, now + durationSeconds);
+      filter.Q.setValueAtTime(2.0, now);
 
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.05, now);
-    gain.gain.exponentialRampToValueAtTime(0.55, now + 2.0); // Apex roar
-    gain.gain.setValueAtTime(0.5, now + durationSeconds - 1.0);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + durationSeconds);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.55, now + apexTime);
+      gain.gain.setValueAtTime(0.5, now + Math.max(apexTime, durationSeconds - 1.0));
+      gain.gain.exponentialRampToValueAtTime(0.001, now + durationSeconds);
 
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.masterGain);
-    noise.start(now);
-    noise.stop(now + durationSeconds);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      noise.start(now);
+      noise.stop(now + durationSeconds);
 
-    // Low rumble undertone for fountain pressure
-    const rumble = this.ctx.createOscillator();
-    const rumbleGain = this.ctx.createGain();
-    rumble.type = 'triangle';
-    rumble.frequency.setValueAtTime(80, now);
-    rumble.frequency.linearRampToValueAtTime(140, now + 2.5);
-    rumbleGain.gain.setValueAtTime(0.15, now);
-    rumbleGain.gain.linearRampToValueAtTime(0.35, now + 2.5);
-    rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + durationSeconds);
+      // Low rumble undertone for fountain pressure
+      const rumble = ctx.createOscillator();
+      const rumbleGain = ctx.createGain();
+      rumble.type = 'triangle';
+      rumble.frequency.setValueAtTime(80, now);
+      rumble.frequency.linearRampToValueAtTime(140, now + apexTime);
+      rumbleGain.gain.setValueAtTime(0.15, now);
+      rumbleGain.gain.linearRampToValueAtTime(0.35, now + apexTime);
+      rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + durationSeconds);
 
-    rumble.connect(rumbleGain);
-    rumbleGain.connect(this.masterGain);
-    rumble.start(now);
-    rumble.stop(now + durationSeconds);
+      rumble.connect(rumbleGain);
+      rumbleGain.connect(masterGain);
+      rumble.start(now);
+      rumble.stop(now + durationSeconds);
+    });
   }
 
   /**
    * Phooljhadi (Sparkler): Crisp sizzling starburst pops & hissing trail
    */
   public playPhooljhadiSound(durationSeconds = 6.0) {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-    const now = this.ctx.currentTime;
+    this.withRunningContext((ctx, masterGain) => {
+      const now = ctx.currentTime;
 
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = this.createNoiseBuffer(durationSeconds);
+      const noise = ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(durationSeconds);
 
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'highpass';
-    filter.frequency.setValueAtTime(4800, now);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.setValueAtTime(4800, now);
 
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.08, now);
-    gain.gain.linearRampToValueAtTime(0.24, now + 0.3);
-    gain.gain.setValueAtTime(0.22, now + durationSeconds - 0.5);
-    gain.gain.linearRampToValueAtTime(0.001, now + durationSeconds);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.linearRampToValueAtTime(0.24, now + 0.3);
+      gain.gain.setValueAtTime(0.22, now + Math.max(0.35, durationSeconds - 0.5));
+      gain.gain.linearRampToValueAtTime(0.001, now + durationSeconds);
 
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.masterGain);
-    noise.start(now);
-    noise.stop(now + durationSeconds);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      noise.start(now);
+      noise.stop(now + durationSeconds);
+    });
   }
 
   /**
-   * Rocket: Sizzling fuse -> ascending whoosh screech -> high-altitude boom explosion
+   * Controllable ascending rocket screech & thrust. Returns stop() so the visual canvas
+   * cuts off the whistle cleanly on the exact animation frame the rocket explodes.
    */
-  public playRocketSound(flightDuration = 1.3) {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-    const now = this.ctx.currentTime;
+  public startRocketLaunchSound(expectedFlightSeconds = 0.95): () => void {
+    let stopped = false;
+    let stopHandle: (() => void) | null = null;
 
-    // Screeching ascending whoosh
-    const osc = this.ctx.createOscillator();
-    const oscGain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(320, now);
-    osc.frequency.exponentialRampToValueAtTime(2600, now + flightDuration);
+    this.withRunningContext((ctx, masterGain) => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const maxDur = Math.max(0.4, expectedFlightSeconds + 0.5);
 
-    oscGain.gain.setValueAtTime(0.12, now);
-    oscGain.gain.exponentialRampToValueAtTime(0.4, now + flightDuration * 0.8);
-    oscGain.gain.linearRampToValueAtTime(0.001, now + flightDuration);
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(340, now);
+      osc.frequency.exponentialRampToValueAtTime(2400, now + expectedFlightSeconds);
 
-    osc.connect(oscGain);
-    oscGain.connect(this.masterGain);
-    osc.start(now);
-    osc.stop(now + flightDuration + 0.05);
+      oscGain.gain.setValueAtTime(0.1, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.36, now + expectedFlightSeconds * 0.85);
+      oscGain.gain.linearRampToValueAtTime(0.001, now + maxDur);
 
-    // Jet thrust noise
-    const thrustNoise = this.ctx.createBufferSource();
-    thrustNoise.buffer = this.createNoiseBuffer(flightDuration);
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(1400, now);
-    filter.frequency.linearRampToValueAtTime(3800, now + flightDuration);
+      osc.connect(oscGain);
+      oscGain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + maxDur + 0.05);
 
-    const thrustGain = this.ctx.createGain();
-    thrustGain.gain.setValueAtTime(0.15, now);
-    thrustGain.gain.linearRampToValueAtTime(0.35, now + flightDuration);
-    thrustGain.gain.linearRampToValueAtTime(0.001, now + flightDuration + 0.05);
+      const thrustNoise = ctx.createBufferSource();
+      thrustNoise.buffer = this.createNoiseBuffer(maxDur);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1400, now);
+      filter.frequency.linearRampToValueAtTime(3600, now + expectedFlightSeconds);
 
-    thrustNoise.connect(filter);
-    filter.connect(thrustGain);
-    thrustGain.connect(this.masterGain);
-    thrustNoise.start(now);
-    thrustNoise.stop(now + flightDuration + 0.05);
+      const thrustGain = ctx.createGain();
+      thrustGain.gain.setValueAtTime(0.14, now);
+      thrustGain.gain.linearRampToValueAtTime(0.32, now + expectedFlightSeconds * 0.9);
+      thrustGain.gain.linearRampToValueAtTime(0.001, now + maxDur);
 
-    // Delayed Sky Explosion
-    setTimeout(() => {
-      if (this.ctx) {
-        this.playExplosionSound(this.ctx.currentTime, 1.4, false);
-      }
+      thrustNoise.connect(filter);
+      filter.connect(thrustGain);
+      thrustGain.connect(masterGain);
+      thrustNoise.start(now);
+      thrustNoise.stop(now + maxDur + 0.05);
+
+      stopHandle = () => {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        try {
+          oscGain.gain.cancelScheduledValues(t);
+          oscGain.gain.setValueAtTime(oscGain.gain.value, t);
+          oscGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+          osc.stop(t + 0.04);
+
+          thrustGain.gain.cancelScheduledValues(t);
+          thrustGain.gain.setValueAtTime(thrustGain.gain.value, t);
+          thrustGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+          thrustNoise.stop(t + 0.04);
+        } catch {
+          // Ignore already stopped nodes
+        }
+      };
+    });
+
+    return () => {
+      stopped = true;
+      stopHandle?.();
+    };
+  }
+
+  /**
+   * Rocket (Audio-Only preview helper): ascending whoosh screech -> explosion
+   */
+  public playRocketSound(flightDuration = 0.95) {
+    const stopLaunch = this.startRocketLaunchSound(flightDuration);
+    window.setTimeout(() => {
+      stopLaunch();
+      this.playSkyshotExplosion(1.3);
     }, flightDuration * 1000);
   }
 
   /**
-   * Skyshots: Sequential mortar thumps followed by sky bursts
+   * Skyshots (Audio-Only preview helper): Sequential mortar thumps followed by sky bursts
    */
-  public playSkyshotSound(shotsCount = 6) {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-
+  public playSkyshotSound(shotsCount = 7) {
     for (let i = 0; i < shotsCount; i++) {
-      const delayMs = i * 420;
-      setTimeout(() => {
-        if (!this.ctx || this.isMuted) return;
-        const now = this.ctx.currentTime;
-
-        // Ground tube mortar thud
-        const thudOsc = this.ctx.createOscillator();
-        const thudGain = this.ctx.createGain();
-        thudOsc.type = 'triangle';
-        thudOsc.frequency.setValueAtTime(120, now);
-        thudOsc.frequency.exponentialRampToValueAtTime(25, now + 0.18);
-        thudGain.gain.setValueAtTime(0.5, now);
-        thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-
-        thudOsc.connect(thudGain);
-        thudGain.connect(this.masterGain!);
-        thudOsc.start(now);
-        thudOsc.stop(now + 0.22);
-
-        // Sky explosion after flight
-        setTimeout(() => {
-          if (this.ctx && !this.isMuted) {
-            this.playExplosionSound(this.ctx.currentTime, 0.9 + Math.random() * 0.4, false);
-          }
-        }, 550 + Math.random() * 120);
+      const delayMs = i * 680;
+      window.setTimeout(() => {
+        this.playSkyshotLaunch();
+        window.setTimeout(() => {
+          this.playSkyshotExplosion(0.95 + Math.random() * 0.25);
+        }, 530);
       }, delayMs);
     }
   }
@@ -535,6 +662,54 @@ class SoundEngine {
       gain.connect(this.masterGain);
       osc.start(noteTime);
       osc.stop(noteTime + 0.85);
+    });
+  }
+
+  /**
+   * "Share Joy" screen-wide confetti cannon pop + shimmering celebration fanfare
+   */
+  public playShareJoyConfetti() {
+    this.withRunningContext((ctx, masterGain) => {
+      const now = ctx.currentTime;
+
+      // Crisp dual confetti-cannon pop
+      [0, 0.08].forEach((offset, idx) => {
+        const popOsc = ctx.createOscillator();
+        const popGain = ctx.createGain();
+        popOsc.type = 'sine';
+        popOsc.frequency.setValueAtTime(idx === 0 ? 220 : 280, now + offset);
+        popOsc.frequency.exponentialRampToValueAtTime(55, now + offset + 0.14);
+
+        popGain.gain.setValueAtTime(0.001, now + offset);
+        popGain.gain.linearRampToValueAtTime(0.45, now + offset + 0.006);
+        popGain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.16);
+
+        popOsc.connect(popGain);
+        popGain.connect(masterGain);
+        popOsc.start(now + offset);
+        popOsc.stop(now + offset + 0.18);
+
+        // Air-burst confetti flutter noise
+        const noise = ctx.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.24);
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(2400 + idx * 600, now + offset);
+        filter.Q.setValueAtTime(1.4, now + offset);
+
+        const nGain = ctx.createGain();
+        nGain.gain.setValueAtTime(0.22, now + offset);
+        nGain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.22);
+
+        noise.connect(filter);
+        filter.connect(nGain);
+        nGain.connect(masterGain);
+        noise.start(now + offset);
+        noise.stop(now + offset + 0.24);
+      });
+
+      // Joyful sparkling arpeggio wash
+      this.playSparkleArpeggio(now + 0.05, 7);
     });
   }
 

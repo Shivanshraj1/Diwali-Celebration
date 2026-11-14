@@ -2,7 +2,11 @@ node_modules/
 build/
 dist/
 coverage/
+.firebase/
 .DS_Store
 *.log
+firebase-debug.log*
+firestore-debug.log*
 .env*
 !.env.example
+*.local

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getFallbackAvatarForCharacter } from '../assets/demoFaces';
 
 interface AvatarImageProps {
@@ -12,7 +12,7 @@ interface AvatarImageProps {
 /**
  * Robust Avatar component that renders the photo/asset if available,
  * and automatically seamlessly falls back to the in-code vector SVG demo face
- * if the image fails, 404s, or is running on GitHub Pages / offline.
+ * if the image fails, 404s, or is unavailable offline.
  */
 export const AvatarImage: React.FC<AvatarImageProps> = ({
   src,
@@ -23,6 +23,10 @@ export const AvatarImage: React.FC<AvatarImageProps> = ({
 }) => {
   const [hasError, setHasError] = useState(false);
   const fallbackUri = getFallbackAvatarForCharacter(characterId || name);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
 
   // If no source provided or failed to load, use guaranteed in-code vector SVG face
   if (!src || hasError) {
