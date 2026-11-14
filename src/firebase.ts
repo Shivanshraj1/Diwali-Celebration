@@ -1,11 +1,65 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import rawConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
+const localConfig = (rawConfig || {}) as Record<string, string>;
 
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Priority 1: Environment variables (Vercel production / .env)
+// Priority 2: Local config file (AI Studio / local dev)
+// Priority 3: Fallback defaults matching dependable-almanac-h9v0l
+const projectId =
+  import.meta.env.VITE_FIREBASE_PROJECT_ID ||
+  localConfig.projectId ||
+  'dependable-almanac-h9v0l';
+
+const apiKey =
+  import.meta.env.VITE_FIREBASE_API_KEY ||
+  localConfig.apiKey ||
+  '';
+
+const appId =
+  import.meta.env.VITE_FIREBASE_APP_ID ||
+  localConfig.appId ||
+  '';
+
+const authDomain =
+  import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
+  localConfig.authDomain ||
+  (projectId ? `${projectId}.firebaseapp.com` : '');
+
+const storageBucket =
+  import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ||
+  localConfig.storageBucket ||
+  (projectId ? `${projectId}.firebasestorage.app` : '');
+
+const messagingSenderId =
+  import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ||
+  localConfig.messagingSenderId ||
+  '384648529311';
+
+const firestoreDatabaseId =
+  import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID ||
+  localConfig.firestoreDatabaseId ||
+  'ai-studio-diwalicelebratio-aff6810a-ab8a-44ed-86e2-37b9a727d7b0';
+
+export const firebaseConfig = {
+  apiKey,
+  projectId,
+  appId,
+  authDomain,
+  storageBucket,
+  messagingSenderId,
+  firestoreDatabaseId,
+};
+
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+export const db =
+  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(app);
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
