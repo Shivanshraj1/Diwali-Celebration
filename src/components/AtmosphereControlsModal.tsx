@@ -21,11 +21,13 @@ export const AtmosphereControlsModal: React.FC<AtmosphereControlsModalProps> = (
   onClose
 }) => {
   const [settings, setSettings] = useState<AtmosphereSettings>(soundEngine.getAtmosphereSettings());
+  const [crackerVol, setCrackerVol] = useState<number>(soundEngine.getCrackerVolume());
   const [testedBurst, setTestedBurst] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setSettings(soundEngine.getAtmosphereSettings());
+      setCrackerVol(soundEngine.getCrackerVolume());
     }
   }, [isOpen]);
 
@@ -40,6 +42,11 @@ export const AtmosphereControlsModal: React.FC<AtmosphereControlsModalProps> = (
   const handleVolumeChange = (vol: number) => {
     soundEngine.updateAtmosphereSettings({ volume: vol });
     setSettings(soundEngine.getAtmosphereSettings());
+  };
+
+  const handleCrackerVolumeChange = (vol: number) => {
+    soundEngine.setCrackerVolume(vol);
+    setCrackerVol(soundEngine.getCrackerVolume());
   };
 
   const handleToggleLayer = (layer: 'wind' | 'city' | 'music') => {
@@ -123,6 +130,22 @@ export const AtmosphereControlsModal: React.FC<AtmosphereControlsModalProps> = (
                 step="0.05"
                 value={settings.volume}
                 onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                className="w-full accent-amber-400 cursor-pointer h-2 bg-zinc-800 rounded-lg"
+              />
+            </div>
+
+            <div className="space-y-1.5 pt-2 border-t border-zinc-800/80">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                <span>Cracker &amp; Sound FX Volume</span>
+                <span className="font-mono text-amber-300">{Math.round(crackerVol * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={crackerVol}
+                onChange={(e) => handleCrackerVolumeChange(parseFloat(e.target.value))}
                 className="w-full accent-amber-400 cursor-pointer h-2 bg-zinc-800 rounded-lg"
               />
             </div>

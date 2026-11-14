@@ -17,6 +17,7 @@ import { Character } from './Character';
 import { ParticleCanvas } from './ParticleCanvas';
 import { ConfettiCanvas, JoyBurstSignal } from './ConfettiCanvas';
 import { AmbientEmbersCanvas } from './AmbientEmbersCanvas';
+import { GlidingSweetTray } from './GlidingSweetTray';
 import { InventoryDock } from './InventoryDock';
 import { SweetsBoxModal } from './SweetsBoxModal';
 import { DynamicWeatherSky } from './DynamicWeatherSky';
@@ -66,6 +67,19 @@ import {
 } from 'lucide-react';
 
 export type ArenaTab = 'terrace' | 'mithai' | 'guide' | 'weather';
+
+export interface ActiveSweetTray {
+  id: string;
+  sweetType: SweetType;
+  senderUid: string;
+  targetUid?: string;
+  startX: number;
+  startY: number;
+  targetX: number;
+  targetY: number;
+  senderName: string;
+  targetName?: string;
+}
 
 interface LiveToast {
   id: string;
@@ -162,6 +176,7 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
   const [joyBurstSignal, setJoyBurstSignal] = useState<JoyBurstSignal | null>(null);
   const [joyBanner, setJoyBanner] = useState<string | null>(null);
   const [shareJoyCooldown, setShareJoyCooldown] = useState(false);
+  const [glidingTrays, setGlidingTrays] = useState<ActiveSweetTray[]>([]);
   const lastJoySentAtRef = useRef(0);
   const personalActionsRef = useRef(0);
 
@@ -340,6 +355,39 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
       );
     }
   }, [handleShareJoy, userProfile.displayName]);
+
+  const triggerGlidingSweetTray = useCallback(
+    (senderUid: string, targetUid: string | undefined, sweetType: SweetType, senderName: string) => {
+      const dims = dimensionsRef.current;
+      const participantsList = participantsRef.current;
+
+      const sender = participantsList.find((p) => p.uid === senderUid || p.id === senderUid);
+      const startX = sender ? (sender.xPercent / 100) * dims.width : dims.width * 0.5;
+      const startY = sender ? (sender.yPercent / 100) * dims.height - 30 : dims.height * 0.75;
+
+      const target = targetUid ? participantsList.find((p) => p.uid === targetUid || p.id === targetUid) : null;
+      const targetX = target ? (target.xPercent / 100) * dims.width : dims.width * 0.5;
+      const targetY = target ? (target.yPercent / 100) * dims.height - 30 : dims.height * 0.7;
+
+      const trayId = `tray_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      setGlidingTrays((prev) => [
+        ...prev.slice(-6),
+        {
+          id: trayId,
+          sweetType,
+          senderUid,
+          targetUid,
+          startX,
+          startY,
+          targetX,
+          targetY,
+          senderName,
+          targetName: target?.name
+        }
+      ]);
+    },
+    []
+  );
 
   // Audio-only preview helper (visual crackers trigger frame-locked audio directly in ParticleCanvas)
   const triggerCrackerAudio = useCallback((type: CrackerType) => {
@@ -529,6 +577,7 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
           if (ev.uid !== userProfile.uid) {
             pushToast(`🍬 ${ev.detail}`, 'sweet', ev.eventId);
           }
+          triggerGlidingSweetTray(ev.uid, ev.targetUid, ev.sweetType || 'kaju_katli', ev.senderName);
           const target = ev.targetUid || ev.uid;
           setCharacterTransientState(target, {
             state: 'sweets',
@@ -595,7 +644,7 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
       unsubEvents();
       unsubMessages();
     };
-  }, [room.roomId, room.hostUid, userProfile.uid, igniteCrackerAt, pushToast, setCharacterTransientState, triggerLocalJoyVisuals]);
+  }, [room.roomId, room.hostUid, userProfile.uid, igniteCrackerAt, pushToast, setCharacterTransientState, triggerLocalJoyVisuals, triggerGlidingSweetTray]);
 
   // Merge Firestore live participants with transient animation overlays
   const renderedParticipants: CharacterData[] = participants.map((p) => {
@@ -676,9 +725,10 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
           expiresAt: Date.now() + 4500
         }
       });
+      triggerGlidingSweetTray(userProfile.uid, targetFriend?.uid, sweetType, userProfile.displayName);
       recordPersonalCelebrationStep();
     },
-    [room.roomId, userProfile, setCharacterTransientState, recordPersonalCelebrationStep]
+    [room.roomId, userProfile, setCharacterTransientState, triggerGlidingSweetTray, recordPersonalCelebrationStep]
   );
 
   const handleGrandFinale = () => {
@@ -819,6 +869,19 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
         height={dimensions.height}
         burstSignal={joyBurstSignal}
       />
+
+      {/* Gliding Mithai Trays Animation Layer */}
+      <div className="absolute inset-0 pointer-events-none z-40">
+        {glidingTrays.map((tray) => (
+          <GlidingSweetTray
+            key={tray.id}
+            {...tray}
+            onComplete={(id) => {
+              setGlidingTrays((prev) => prev.filter((t) => t.id !== id));
+            }}
+          />
+        ))}
+      </div>
 
       {/* Non-blocking Share Joy / Milestone Banner */}
       {joyBanner && (
@@ -1443,6 +1506,43 @@ export const CrackerArena: React.FC<CrackerArenaProps> = ({
                 <span className="text-xs font-bold text-amber-300">City Skyline Bursts</span>
                 <span className="text-[11px]">Distant celebratory fireworks across far horizons</span>
               </button>
+            </div>
+
+            <div className="pt-3 border-t border-zinc-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-300">
+                  Lighting Themes &amp; Scenery
+                </span>
+                {!isHost && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
+                    Host Control Only
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                {isHost ? 'Switch room lighting & environment (syncs to all friends in room)' : 'Current room lighting set by host'}
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                {BACKGROUND_OPTIONS.map((opt) => {
+                  const isActive = localBgScene === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleSceneChange(opt.id)}
+                      className={`min-h-[64px] p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        isActive
+                          ? 'border-amber-400 bg-amber-500/20 text-white shadow-md'
+                          : 'border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:border-amber-400/40'
+                      }`}
+                    >
+                      <span className="text-xs font-bold text-amber-200 truncate">{opt.name}</span>
+                      <span className="text-[10px] text-zinc-400 truncate">{opt.hindiName}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <button

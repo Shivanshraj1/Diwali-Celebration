@@ -57,7 +57,7 @@ service cloud.firestore {
     }
 
     function validBgScene(val) {
-      return val in ['courtyard', 'playground', 'terrace'];
+      return val in ['courtyard', 'playground', 'terrace', 'twilight', 'midnight', 'sunset'];
     }
 
     function validWeatherMode(val) {

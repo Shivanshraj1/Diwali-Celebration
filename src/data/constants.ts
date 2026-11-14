@@ -32,7 +32,7 @@ export {
 };
 
 export interface BackgroundOption {
-  id: 'courtyard' | 'playground' | 'terrace';
+  id: 'courtyard' | 'playground' | 'terrace' | 'twilight' | 'midnight' | 'sunset';
   name: string;
   hindiName: string;
   url: string;
@@ -64,6 +64,30 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
     url: terraceImg,
     fallbackUrl: PROCEDURAL_TERRACE_SVG,
     description: 'Serene stone terrace lined with clay oil diyas and flower rangoli overlooking the illuminated city.'
+  },
+  {
+    id: 'twilight',
+    name: 'Twilight Evening',
+    hindiName: 'संध्या बेला',
+    url: courtyardImg,
+    fallbackUrl: PROCEDURAL_COURTYARD_SVG,
+    description: 'Deep twilight sky with soft purple indigo hues and early festive lamps.'
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight Starlight',
+    hindiName: 'मध्यरात्रि',
+    url: terraceImg,
+    fallbackUrl: PROCEDURAL_TERRACE_SVG,
+    description: 'Dark obsidian midnight sky with glowing stars and dazzling firework reflections.'
+  },
+  {
+    id: 'sunset',
+    name: 'Golden Sunset',
+    hindiName: 'गोदसूद सूर्यास्त',
+    url: playgroundImg,
+    fallbackUrl: PROCEDURAL_PLAYGROUND_SVG,
+    description: 'Warm golden hour sunset casting amber and crimson hues across the celebration ground.'
   }
 ];
 

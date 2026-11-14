@@ -41,7 +41,7 @@ export type CharacterAccessory =
   | 'bindi'
   | 'glasses';
 
-export type BgSceneId = 'courtyard' | 'playground' | 'terrace';
+export type BgSceneId = 'courtyard' | 'playground' | 'terrace' | 'twilight' | 'midnight' | 'sunset';
 
 export type WeatherMode = 'starlit' | 'lanterns' | 'mist' | 'distant_fireworks';
 

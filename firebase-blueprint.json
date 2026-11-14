@@ -39,7 +39,7 @@
         "hostUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
         "hostName": { "type": "string", "minLength": 1, "maxLength": 60 },
         "inviteCode": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[a-zA-Z0-9_\\-]+$" },
-        "bgScene": { "type": "string", "enum": ["courtyard", "playground", "terrace"] },
+        "bgScene": { "type": "string", "enum": ["courtyard", "playground", "terrace", "twilight", "midnight", "sunset"] },
         "weatherMode": { "type": "string", "enum": ["starlit", "lanterns", "mist", "distant_fireworks"] },
         "crackersIgnited": { "type": "number" },
         "sweetsShared": { "type": "number" },

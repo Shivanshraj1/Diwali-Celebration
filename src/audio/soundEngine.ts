@@ -15,6 +15,7 @@ class SoundEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private atmosphereGain: GainNode | null = null;
+  private crackerGain: GainNode | null = null;
   private windGain: GainNode | null = null;
   private cityGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
@@ -22,6 +23,7 @@ class SoundEngine {
   private isMuted: boolean = false;
   private isAtmosphereActive: boolean = false;
   private isMusicPlaying: boolean = false;
+  private crackerVolume: number = 0.8;
 
   private windSource: AudioBufferSourceNode | null = null;
   private windLfo: OscillatorNode | null = null;
@@ -55,6 +57,10 @@ class SoundEngine {
       this.atmosphereGain = this.ctx.createGain();
       this.atmosphereGain.gain.setValueAtTime(this.atmosphereSettings.volume, this.ctx.currentTime);
       this.atmosphereGain.connect(this.masterGain);
+
+      this.crackerGain = this.ctx.createGain();
+      this.crackerGain.gain.setValueAtTime(this.crackerVolume, this.ctx.currentTime);
+      this.crackerGain.connect(this.masterGain);
 
       this.windGain = this.ctx.createGain();
       this.windGain.gain.setValueAtTime(this.atmosphereSettings.wind ? 0.14 : 0, this.ctx.currentTime);
@@ -95,12 +101,12 @@ class SoundEngine {
    * Run a sound effect only when AudioContext is actively running so autoplay-blocked
    * ticks never queue onto a frozen clock and burst out late when resumed later.
    */
-  private withRunningContext(cb: (ctx: AudioContext, masterGain: GainNode) => void) {
+  private withRunningContext(cb: (ctx: AudioContext, soundGain: GainNode) => void) {
     this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    if (!this.ctx || !this.crackerGain || this.isMuted) return;
 
     if (this.ctx.state === 'running') {
-      cb(this.ctx, this.masterGain);
+      cb(this.ctx, this.crackerGain);
       return;
     }
 
@@ -110,12 +116,12 @@ class SoundEngine {
       .then(() => {
         if (
           this.ctx &&
-          this.masterGain &&
+          this.crackerGain &&
           !this.isMuted &&
           this.ctx.state === 'running' &&
           performance.now() - requestedAt < 120
         ) {
-          cb(this.ctx, this.masterGain);
+          cb(this.ctx, this.crackerGain);
         }
       })
       .catch(() => {});
@@ -137,6 +143,17 @@ class SoundEngine {
       const clamped = Math.max(0, Math.min(1, vol));
       this.masterGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.05);
     }
+  }
+
+  public setCrackerVolume(vol: number) {
+    this.crackerVolume = Math.max(0, Math.min(1, vol));
+    if (this.crackerGain && this.ctx && !this.isMuted) {
+      this.crackerGain.gain.setTargetAtTime(this.crackerVolume, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  public getCrackerVolume(): number {
+    return this.crackerVolume;
   }
 
   // Create white/pink noise buffer
